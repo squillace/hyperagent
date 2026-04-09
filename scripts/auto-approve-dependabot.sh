@@ -121,38 +121,37 @@ echo "$dependabot_prs" | jq -c '.[]' | while read -r pr; do
         echo "  ℹ️ PR #$pr_number is already approved"
     fi
     
-    if [ "$has_pending_checks" = true ] || [ "$all_checks_pass" = true ]; then
-        # Check if PR is draft and whether it is up-to-date with base branch
-        pr_merge_info=$(gh pr view "$pr_number" -R "$REPO" --json isDraft,mergeStateStatus)
-        is_draft=$(echo "$pr_merge_info" | jq -r '.isDraft')
-        merge_status=$(echo "$pr_merge_info" | jq -r '.mergeStateStatus')
-
-        if [ "$is_draft" = "true" ]; then
-            echo "  ⚠️ PR #$pr_number is a draft PR; skipping merge"
-            continue
-        fi
-
-        if [ "$merge_status" != "CLEAN" ]; then
-            echo "  ⚠️ PR #$pr_number is not up to date (status: $merge_status)"
-            # Enable auto-merge to merge once checks pass
-            echo "  ✅ Enabling auto-merge (squash strategy) for PR #$pr_number"
-            if gh pr merge "$pr_number" -R "$REPO" --auto --squash; then
-                echo "  ✅ Auto-merge enabled for PR #$pr_number"
-            else
-                echo "  ⚠️ Failed to enable auto-merge for PR #$pr_number; continuing to next PR"
-                continue
-            fi
-        else
-            echo "  ✅ PR #$pr_number is up to date with base branch"
-            # PR is already clean/mergeable - merge directly instead of enabling auto-merge
-            echo "  ✅ Merging PR #$pr_number directly (squash strategy)"
-            if gh pr merge "$pr_number" -R "$REPO" --squash; then
+    if [ "$has_pending_checks" = true ]; then
+        echo "  ⏳ PR #$pr_number still has pending checks"
+        echo "  ✅ Enabling auto-merge (squash strategy) for PR #$pr_number"
+        gh pr merge "$pr_number" -R "$REPO" --auto --squash
+        echo "  ✅ Auto-merge enabled for PR #$pr_number"
+    elif [ "$all_checks_pass" = true ]; then
+        # Check if PR is up-to-date with base branch
+        merge_status=$(gh pr view "$pr_number" -R "$REPO" --json mergeStateStatus -q '.mergeStateStatus')
+        
+        case "$merge_status" in
+            CLEAN)
+                echo "  ✅ PR #$pr_number is up to date with base branch"
+                # PR is already clean/mergeable - merge directly instead of enabling auto-merge
+                echo "  ✅ Merging PR #$pr_number directly (squash strategy)"
+                gh pr merge "$pr_number" -R "$REPO" --squash
                 echo "  ✅ PR #$pr_number merged successfully"
-            else
-                echo "  ⚠️ Failed to merge PR #$pr_number; continuing to next PR"
-                continue
-            fi
-        fi
+                ;;
+            BEHIND)
+                echo "  ⚠️ PR #$pr_number is behind the base branch"
+                # Enable auto-merge to merge once the branch is updated and checks pass
+                echo "  ✅ Enabling auto-merge (squash strategy) for PR #$pr_number"
+                gh pr merge "$pr_number" -R "$REPO" --auto --squash
+                echo "  ✅ Auto-merge enabled for PR #$pr_number"
+                ;;
+            DIRTY|BLOCKED)
+                echo "  ⚠️ Skipping PR #$pr_number because it cannot be auto-merged (status: $merge_status)"
+                ;;
+            *)
+                echo "  ⚠️ Skipping PR #$pr_number due to unsupported merge status: $merge_status"
+                ;;
+        esac
     fi
     
 done
