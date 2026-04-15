@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 
 // ── ooxml-core ───────────────────────────────────────────────────────
 
-const core = await import("../builtin-modules/ooxml-core.js");
+const core: any = await import("../builtin-modules/ooxml-core.js");
 
 /** Convert ShapeFragment or string to XML string for test assertions */
 const toXml = (v: unknown): string => (typeof v === "string" ? v : String(v));
@@ -78,12 +78,13 @@ describe("ooxml-core", () => {
 
     it("each theme should have all required fields", () => {
       for (const [name, theme] of Object.entries(core.THEMES)) {
-        expect(theme.bg, `${name}.bg`).toBeTruthy();
-        expect(theme.fg, `${name}.fg`).toBeTruthy();
-        expect(theme.accent1, `${name}.accent1`).toBeTruthy();
-        expect(theme.accent2, `${name}.accent2`).toBeTruthy();
-        expect(theme.titleFont, `${name}.titleFont`).toBeTruthy();
-        expect(theme.bodyFont, `${name}.bodyFont`).toBeTruthy();
+        const t = theme as Record<string, unknown>;
+        expect(t.bg, `${name}.bg`).toBeTruthy();
+        expect(t.fg, `${name}.fg`).toBeTruthy();
+        expect(t.accent1, `${name}.accent1`).toBeTruthy();
+        expect(t.accent2, `${name}.accent2`).toBeTruthy();
+        expect(t.titleFont, `${name}.titleFont`).toBeTruthy();
+        expect(t.bodyFont, `${name}.bodyFont`).toBeTruthy();
       }
     });
   });
@@ -728,8 +729,10 @@ describe("embedImage", () => {
     const slideRels = entries.find(
       (e: { name: string }) => e.name === "ppt/slides/_rels/slide1.xml.rels",
     );
-    expect(slideRels.data).toContain("rIdImage1");
     expect(slideRels.data).toContain("image");
+    // Image rel should use standard rId* format (not rIdImage*)
+    expect(slideRels.data).toMatch(/rId\d+/);
+    expect(slideRels.data).not.toContain("rIdImage");
     // Content type should include image
     const ct = entries.find(
       (e: { name: string }) => e.name === "[Content_Types].xml",

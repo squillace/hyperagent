@@ -41,6 +41,190 @@ declare module "ha:crc32" {
   export declare function crc32Finalize(crc: number): number;
 }
 
+declare module "ha:doc-core" {
+  /**
+   * Convert a hex colour string to normalised format (strip leading #, uppercase).
+   * This is the **lenient** version — it does NOT throw on bad input.
+   * Prefer `requireHex()` at public API boundaries; this is kept for
+   * internal paths where the value has already been validated.
+   *
+   * @param hex - Colour like "#2196F3" or "2196F3"
+   * @returns Normalised colour like "2196F3"
+   */
+  export declare function hexColor(hex: string): string;
+  /**
+   * Theme definition for document styling.
+   * Used by PPTX, PDF, and any other document format modules.
+   */
+  export interface Theme {
+      /** Background colour (6-char hex, no #) */
+      bg: string;
+      /** Primary text colour */
+      fg: string;
+      /** Primary accent */
+      accent1: string;
+      /** Secondary accent */
+      accent2: string;
+      /** Tertiary accent */
+      accent3: string;
+      /** Quaternary accent */
+      accent4: string;
+      /** Muted/subtle text colour */
+      subtle: string;
+      /** Font for titles */
+      titleFont: string;
+      /** Font for body text */
+      bodyFont: string;
+      /** True if theme has a dark background (bg luminance < 0.5) */
+      isDark: boolean;
+  }
+  /**
+   * Built-in document themes. Use one of these theme names with
+   * createPresentation() or createDocument().
+   *
+   * Valid theme names:
+   * - 'corporate-blue' — Dark blue background, white text, professional look
+   * - 'dark-gradient' — GitHub-style dark background, light text
+   * - 'light-clean' — White background, dark text, clean minimal style
+   * - 'emerald' — Teal/green background, white text, nature theme
+   * - 'sunset' — Dark red background, white/gold text, warm theme
+   * - 'black' — Pure black background, white text
+   * - 'brutalist' — Bold black bg, red/white accents
+   */
+  export declare const THEMES: Record<string, Theme>;
+  /**
+   * Get a theme by name. Falls back to 'corporate-blue' if not found.
+   * @param name - Theme name (see getThemeNames() for valid values)
+   * @returns Theme object
+   */
+  export declare function getTheme(name: string): Theme;
+  /**
+   * Get all available theme names.
+   * @returns Array of valid theme names
+   */
+  export declare function getThemeNames(): string[];
+  /**
+   * Get a markdown-formatted description of all available themes.
+   * Includes name, background/text colours, whether it's dark, and recommended use cases.
+   * Use this to help choose the right theme for a document.
+   *
+   * @returns Markdown string describing all themes
+   */
+  export declare function describeThemes(): string;
+  /**
+   * Calculate WCAG 2.0 relative luminance of a hex colour.
+   * @param hex - 6-char hex colour (no #)
+   * @returns Luminance 0.0–1.0
+   */
+  export declare function luminance(hex: string): number;
+  /**
+   * WCAG 2.0 contrast ratio between two colours (1.0–21.0).
+   * >= 4.5 for AA normal text, >= 3.0 for AA large text.
+   * @param hex1 - 6-char hex (no #)
+   * @param hex2 - 6-char hex (no #)
+   * @returns Contrast ratio
+   */
+  export declare function contrastRatio(hex1: string, hex2: string): number;
+  /**
+   * Pick readable text colour for a background. Returns whichever of
+   * light / dark has higher WCAG contrast against bgHex.
+   * @param bgHex - Background colour (6-char hex, no #)
+   * @param light - Light text option (default: "FFFFFF")
+   * @param dark - Dark text option (default: "333333")
+   * @returns Hex colour with better contrast
+   */
+  export declare function autoTextColor(bgHex: string, light?: string, dark?: string): string;
+  /**
+   * Check if a colour is "dark" (luminance < 0.5).
+   * Useful for choosing theme-appropriate defaults.
+   * @param hex - 6-char hex colour (no #)
+   * @returns True if the colour is dark
+   */
+  export declare function isDark(hex: string): boolean;
+  /**
+   * Validate and normalise a hex colour string.
+   * Throws a descriptive Error if the value is missing, wrong type, or
+   * not a valid 6-character hex colour.
+   *
+   * @param hex - Colour value to validate (e.g. "#2196F3" or "2196F3")
+   * @param paramName - Parameter name for the error message
+   * @returns Upper-cased 6-char hex without # (e.g. "2196F3")
+   * @throws If hex is null, undefined, non-string, empty, or not 6-char hex
+   */
+  export declare function requireHex(hex: string | null | undefined, paramName: string): string;
+  /** Options for requireThemeColor(). */
+  export interface RequireThemeColorOptions {
+      /** Colour to check contrast against (default: theme.bg). Use this for text colours that sit on a known fill. */
+      against?: string;
+  }
+  /**
+   * Validate that a colour is either part of the active theme palette or
+   * has sufficient WCAG AA contrast (≥ 4.5) against the theme background.
+   * This prevents invisible text (e.g. dark-on-dark, light-on-light).
+   *
+   * @param hex - Colour to check (6-char hex, no #)
+   * @param theme - Active theme
+   * @param paramName - Parameter name for the error message
+   * @param opts - Options
+   * @returns The validated, upper-cased hex colour
+   * @throws If colour has insufficient contrast and is not a theme colour
+   */
+  export declare function requireThemeColor(hex: string, theme: Theme | null | undefined, paramName: string, opts?: RequireThemeColorOptions): string;
+  /** Options for requireNumber(). */
+  export interface RequireNumberOptions {
+      /** Minimum allowed value (inclusive) */
+      min?: number;
+      /** Maximum allowed value (inclusive) */
+      max?: number;
+  }
+  /**
+   * Validate that a value is a finite number. Catches NaN, Infinity,
+   * strings, null, undefined, and other non-numeric garbage.
+   *
+   * @param n - Value to validate
+   * @param paramName - Parameter name for the error message
+   * @param opts - Options
+   * @returns The validated number
+   * @throws If not a finite number or out of range
+   */
+  export declare function requireNumber(n: unknown, paramName: string, opts?: RequireNumberOptions): number;
+  /**
+   * Validate that a value is a non-empty string.
+   *
+   * @param s - Value to validate
+   * @param paramName - Parameter name for the error message
+   * @returns The validated string
+   * @throws If not a string or empty
+   */
+  export declare function requireString(s: unknown, paramName: string): string;
+  /** Options for requireArray(). */
+  export interface RequireArrayOptions {
+      /** Require at least one element */
+      nonEmpty?: boolean;
+  }
+  /**
+   * Validate that a value is an array, optionally non-empty.
+   * If a string is passed, it is auto-split on newlines into an array.
+   *
+   * @param a - Value to validate
+   * @param paramName - Parameter name for the error message
+   * @param opts - Options
+   * @returns The validated array
+   * @throws If not an array or empty when nonEmpty is true
+   */
+  export declare function requireArray<T>(a: unknown, paramName: string, opts?: RequireArrayOptions): T[];
+  /**
+   * Validate that a value is one of an allowed set of enum values.
+   *
+   * @param val - Value to validate
+   * @param paramName - Parameter name for the error message
+   * @param whitelist - Allowed values
+   * @returns The validated value
+   * @throws If not in the whitelist
+   */
+  export declare function requireEnum<T extends string>(val: unknown, paramName: string, whitelist: readonly T[]): T;
+}
+
 declare module "ha:html" {
   /**
    * Extract visible text from HTML, stripping all tags.
@@ -91,6 +275,7 @@ declare module "ha:markdown" {
 }
 
 declare module "ha:ooxml-core" {
+  export { type Theme, hexColor, THEMES, getTheme, getThemeNames, describeThemes, luminance, contrastRatio, autoTextColor, isDark, requireHex, requireThemeColor, requireNumber, requireString, requireArray, requireEnum, } from "ha:doc-core";
   /** EMUs per inch. */
   export declare const EMU_PER_INCH: number;
   /** EMUs per typographic point. */
@@ -124,67 +309,6 @@ declare module "ha:ooxml-core" {
    * @returns OOXML font size value (e.g. 2400)
    */
   export declare function fontSize(pt: number): number;
-  /**
-   * Convert a hex color string to OOXML format (strip leading #).
-   * This is the **lenient** version — it does NOT throw on bad input.
-   * Prefer `requireHex()` at public API boundaries; this is kept for
-   * internal paths where the value has already been validated.
-   *
-   * @param hex - Color like "#2196F3" or "2196F3"
-   * @returns OOXML color like "2196F3"
-   */
-  export declare function hexColor(hex: string): string;
-  /**
-   * Theme definition for presentation styling.
-   */
-  export interface Theme {
-      /** Background color (6-char hex, no #) */
-      bg: string;
-      /** Primary text color */
-      fg: string;
-      /** Primary accent */
-      accent1: string;
-      /** Secondary accent */
-      accent2: string;
-      /** Tertiary accent */
-      accent3: string;
-      /** Quaternary accent */
-      accent4: string;
-      /** Muted/subtle text color */
-      subtle: string;
-      /** Font for titles */
-      titleFont: string;
-      /** Font for body text */
-      bodyFont: string;
-      /** True if theme has a dark background (bg luminance < 0.5) */
-      isDark: boolean;
-  }
-  /**
-   * Available presentation themes. Use one of these theme names with createPresentation().
-   *
-   * IMPORTANT: Only these exact theme names are valid:
-   * - 'corporate-blue' — Dark blue background, white text, professional look
-   * - 'dark-gradient' — GitHub-style dark background, light text
-   * - 'light-clean' — White background, dark text, clean minimal style
-   * - 'emerald' — Teal/green background, white text, nature theme
-   * - 'sunset' — Dark red background, white/gold text, warm theme
-   */
-  export declare const THEMES: Record<string, Theme>;
-  /**
-   * Get a theme by name. Falls back to 'corporate-blue' if not found.
-   * @param name - Theme name (see getThemeNames() for valid values)
-   * @returns Theme object
-   */
-  export declare function getTheme(name: string): Theme;
-  /**
-   * Get all available theme names for createPresentation().
-   * @returns Array of valid theme names: ['corporate-blue', 'dark-gradient', 'light-clean', 'emerald', 'sunset', 'black']
-   * @example
-   * // Check available themes before creating presentation
-   * const themes = getThemeNames(); // ['corporate-blue', 'dark-gradient', ..., 'black']
-   * const pres = createPresentation({ theme: themes[1] }); // Use 'dark-gradient'
-   */
-  export declare function getThemeNames(): string[];
   interface ContentTypeDefault {
       extension: string;
       contentType: string;
@@ -223,121 +347,6 @@ declare module "ha:ooxml-core" {
   export declare const SLIDE_WIDTH: number;
   /** Standard widescreen 16:9 slide height (7.5 inches in EMUs). */
   export declare const SLIDE_HEIGHT: number;
-  /**
-   * Validate and normalise a hex colour string.
-   * Throws a descriptive Error if the value is missing, wrong type, or
-   * not a valid 6-character hex colour.
-   *
-   * **Rule:** All colour parameters in the PPTX modules MUST pass through
-   * this function (or `requireThemeColor`) before being used in XML output.
-   *
-   * @param hex - Colour value to validate (e.g. "#2196F3" or "2196F3")
-   * @param paramName - Parameter name for the error message
-   * @returns Upper-cased 6-char hex without # (e.g. "2196F3")
-   * @throws If hex is null, undefined, non-string, empty, or not 6-char hex
-   */
-  export declare function requireHex(hex: string | null | undefined, paramName: string): string;
-  interface RequireThemeColorOptions {
-      /** Colour to check contrast against (default: theme.bg). Use this for text colours that sit on a known fill. */
-      against?: string;
-  }
-  /**
-   * Validate that a colour is either part of the active theme palette or
-   * has sufficient WCAG AA contrast (≥ 4.5) against the theme background.
-   * This prevents invisible text (e.g. dark-on-dark, light-on-light).
-   *
-   * **Rule:** Every user-facing colour parameter that will be rendered as
-   * text or a visible element SHOULD go through this function.  Internal /
-   * structural colours (e.g. XML namespace strings) are exempt.
-   *
-   * @param hex - Colour to check (6-char hex, no #)
-   * @param theme - Active presentation theme
-   * @param paramName - Parameter name for the error message
-   * @param opts - Options
-   * @returns The validated, upper-cased hex colour
-   * @throws If colour has insufficient contrast and is not a theme colour
-   */
-  export declare function requireThemeColor(hex: string, theme: Theme | null | undefined, paramName: string, opts?: RequireThemeColorOptions): string;
-  interface RequireNumberOptions {
-      /** Minimum allowed value (inclusive) */
-      min?: number;
-      /** Maximum allowed value (inclusive) */
-      max?: number;
-  }
-  /**
-   * Validate that a value is a finite number.  Catches NaN, Infinity,
-   * strings, null, undefined, and other non-numeric garbage.
-   *
-   * @param n - Value to validate
-   * @param paramName - Parameter name for the error message
-   * @param opts - Options
-   * @returns The validated number
-   * @throws If not a finite number or out of range
-   */
-  export declare function requireNumber(n: unknown, paramName: string, opts?: RequireNumberOptions): number;
-  /**
-   * Validate that a value is a non-empty string.
-   *
-   * @param s - Value to validate
-   * @param paramName - Parameter name for the error message
-   * @returns The validated string
-   * @throws If not a string or empty
-   */
-  export declare function requireString(s: unknown, paramName: string): string;
-  interface RequireArrayOptions {
-      /** Require at least one element */
-      nonEmpty?: boolean;
-  }
-  /**
-   * Validate that a value is an array, optionally non-empty.
-   *
-   * @param a - Value to validate
-   * @param paramName - Parameter name for the error message
-   * @param opts - Options
-   * @returns The validated array
-   * @throws If not an array or empty when nonEmpty is true
-   */
-  export declare function requireArray<T>(a: unknown, paramName: string, opts?: RequireArrayOptions): T[];
-  /**
-   * Validate that a value is one of an allowed set of enum values.
-   *
-   * @param val - Value to validate
-   * @param paramName - Parameter name for the error message
-   * @param whitelist - Allowed values
-   * @returns The validated value
-   * @throws If not in the whitelist
-   */
-  export declare function requireEnum<T extends string>(val: unknown, paramName: string, whitelist: readonly T[]): T;
-  /**
-   * Calculate WCAG 2.0 relative luminance of a hex colour.
-   * @param hex - 6-char hex colour (no #)
-   * @returns Luminance 0.0–1.0
-   */
-  export declare function luminance(hex: string): number;
-  /**
-   * WCAG 2.0 contrast ratio between two colours (1.0–21.0).
-   * >= 4.5 for AA normal text, >= 3.0 for AA large text.
-   * @param hex1 - 6-char hex (no #)
-   * @param hex2 - 6-char hex (no #)
-   * @returns Contrast ratio
-   */
-  export declare function contrastRatio(hex1: string, hex2: string): number;
-  /**
-   * Pick readable text colour for a background. Returns whichever of
-   * light / dark has higher WCAG contrast against bgHex.
-   * @param bgHex - Background colour (6-char hex, no #)
-   * @param light - Light text option
-   * @param dark - Dark text option
-   * @returns Hex colour with better contrast
-   */
-  export declare function autoTextColor(bgHex: string, light?: string, dark?: string): string;
-  /**
-   * Check if a colour is "dark" (luminance < 0.5).
-   * Useful for choosing theme-appropriate defaults.
-   * @param hex - 6-char hex colour (no #)
-   * @returns True if the colour is dark
-   */
-  export declare function isDark(hex: string): boolean;
   /**
    * Opaque shape fragment produced by official shape builders.
    * Cannot be constructed from raw strings by LLM code.
@@ -410,6 +419,1416 @@ declare module "ha:ooxml-core" {
    * Used by shape functions to skip contrast validation.
    */
   export declare function isForceAllColors(): boolean;
+}
+
+declare module "ha:pdf-charts" {
+  /** Maximum charts per document. */
+  export declare const MAX_CHARTS_PER_DOC = 50;
+  /** Maximum data series per chart. */
+  export declare const MAX_SERIES_PER_CHART = 24;
+  /** Maximum categories (X-axis labels) per chart. */
+  export declare const MAX_CATEGORIES = 100;
+  /** Maximum pie chart slices. */
+  export declare const MAX_PIE_SLICES = 100;
+  /** A data series for bar/line/combo charts. */
+  export interface ChartSeries {
+      /** Series name (REQUIRED — shown in legend). */
+      name: string;
+      /** Data values (must match categories length). */
+      values: number[];
+      /** Series colour as 6-char hex. Auto-assigned from palette if omitted. */
+      color?: string;
+  }
+  /** Options for barChart(). */
+  export interface BarChartOptions {
+      /** Category labels (X-axis). */
+      categories: string[];
+      /** Data series. Each must have name and values matching categories length. */
+      series: ChartSeries[];
+      /** Chart title (drawn above chart). */
+      title?: string;
+      /** Chart subtitle (rendered smaller below title, e.g. "Values in $M"). */
+      subtitle?: string;
+      /** Chart width in points. Default: 400. */
+      width?: number;
+      /** Chart height in points (TOTAL including axes, legend, and padding — not just the plot area). Default: 250. In addContent, a chart title adds ~21pt on top. */
+      height?: number;
+      /** If true, draw horizontal bars instead of vertical. Default: false. */
+      horizontal?: boolean;
+      /** If true, stack series instead of grouping. Default: false. */
+      stacked?: boolean;
+      /** Text colour for labels. Default: theme foreground. */
+      textColor?: string;
+  }
+  /**
+   * Create a bar chart element for flow layout.
+   * Returns a PdfElement containing pre-computed drawing operations.
+   *
+   * @param opts - Bar chart options
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function barChart(opts: BarChartOptions): PdfElement;
+  /** Options for lineChart(). */
+  export interface LineChartOptions {
+      /** Category labels (X-axis). */
+      categories: string[];
+      /** Data series. */
+      series: ChartSeries[];
+      /** Chart title. */
+      title?: string;
+      /** Chart subtitle (rendered smaller below title, e.g. "Values in $M"). */
+      subtitle?: string;
+      /** Chart width in points. Default: 400. */
+      width?: number;
+      /** Chart height in points (TOTAL including axes, legend, and padding — not just the plot area). Default: 250. In addContent, a chart title adds ~21pt on top. */
+      height?: number;
+      /** If true, draw area fill under lines. Default: false. */
+      area?: boolean;
+      /** Text colour for labels. Default: '333333'. */
+      textColor?: string;
+  }
+  /**
+   * Create a line chart element for flow layout.
+   *
+   * @param opts - Line chart options
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function lineChart(opts: LineChartOptions): PdfElement;
+  /** Options for pieChart(). */
+  export interface PieChartOptions {
+      /** Slice labels. */
+      labels: string[];
+      /** Slice values (positive numbers). */
+      values: number[];
+      /** Chart title. */
+      title?: string;
+      /** Chart subtitle (rendered smaller below title, e.g. "Values in $M"). */
+      subtitle?: string;
+      /** Chart width in points. Default: 400. */
+      width?: number;
+      /** Chart height in points (TOTAL including axes, legend, and padding — not just the plot area). Default: 250. In addContent, a chart title adds ~21pt on top. */
+      height?: number;
+      /** Slice colours as 6-char hex array. Auto-assigned if omitted. */
+      colors?: string[];
+      /** If true, render as donut chart with a hole in the center. Default: false. */
+      donut?: boolean;
+      /** Text colour for labels. Default: '333333'. */
+      textColor?: string;
+  }
+  /**
+   * Create a pie chart element for flow layout.
+   * Pie slices are approximated using line segments (PDF has no arc primitive
+   * — Bézier arc approximation is complex). For Phase 5, we use a polygon
+   * approximation with enough segments to look smooth.
+   *
+   * @param opts - Pie chart options
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function pieChart(opts: PieChartOptions): PdfElement;
+  /** Options for comboChart(). */
+  export interface ComboChartOptions {
+      /** Category labels (X-axis). */
+      categories: string[];
+      /** Bar data series. */
+      barSeries?: ChartSeries[];
+      /** Line data series (overlaid on bars). */
+      lineSeries?: ChartSeries[];
+      /** Chart title. */
+      title?: string;
+      /** Chart subtitle (rendered smaller below title, e.g. "Values in $M"). */
+      subtitle?: string;
+      /** Chart width in points. Default: 400. */
+      width?: number;
+      /** Chart height in points (TOTAL including axes, legend, and padding — not just the plot area). Default: 250. In addContent, a chart title adds ~21pt on top. */
+      height?: number;
+      /** Text colour. Default: '333333'. */
+      textColor?: string;
+  }
+  /**
+   * Create a combo chart (bars + lines) element for flow layout.
+   *
+   * @param opts - Combo chart options
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function comboChart(opts: ComboChartOptions): PdfElement;
+}
+
+declare module "ha:pdf" {
+  /** Points per inch (PDF base unit). */
+  export declare const PTS_PER_INCH: number;
+  /** Page dimensions in points {width, height}. */
+  export interface PageSize {
+      /** Width in points */
+      readonly width: number;
+      /** Height in points */
+      readonly height: number;
+  }
+  /** Standard page sizes (all dimensions in points, portrait orientation). */
+  export declare const PAGE_SIZES: Record<string, PageSize>;
+  /**
+   * Valid standard font names. These are guaranteed available in all PDF
+   * viewers without font embedding.
+   */
+  export declare const STANDARD_FONTS: readonly ["Helvetica", "Helvetica-Bold", "Helvetica-Oblique", "Helvetica-BoldOblique", "Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic", "Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique", "Symbol", "ZapfDingbats"];
+  export type StandardFontName = (typeof STANDARD_FONTS)[number];
+  /**
+   * Get the width of a single character in a standard font.
+   * @param font - Standard font name
+   * @param charCode - ASCII character code (32-126 for printable)
+   * @returns Width in 1/1000 of a text unit
+   */
+  export declare function charWidth(font: string, charCode: number): number;
+  /**
+   * Measure the width of a string in points for a given font and size.
+   * Supports both standard 14 fonts and custom TrueType fonts.
+   * @param text - Text to measure
+   * @param font - Font name (standard or custom registered)
+   * @param fontSize - Font size in points
+   * @returns Width in points
+   */
+  export declare function measureText(text: string, font: string, fontSize: number): number;
+  /** A value that can be serialized into a PDF object. */
+  type PdfValue = string | number | boolean | null | PdfName | PdfArray | PdfDict | PdfRef | PdfStream;
+  /** PDF Name object (e.g. /Type, /Font). */
+  declare class PdfName {
+      readonly name: string;
+      constructor(name: string);
+  }
+  /** PDF indirect reference (e.g. "5 0 R"). */
+  declare class PdfRef {
+      readonly objNum: number;
+      constructor(objNum: number);
+  }
+  /** PDF Array (e.g. [1 2 3]). */
+  declare class PdfArray {
+      readonly items: PdfValue[];
+      constructor(items: PdfValue[]);
+  }
+  /** PDF Dictionary (e.g. << /Type /Catalog >>). */
+  declare class PdfDict {
+      readonly entries: Map<string, PdfValue>;
+      set(key: string, value: PdfValue): this;
+      get(key: string): PdfValue | undefined;
+  }
+  /** PDF Stream — a dictionary plus binary/text data. */
+  declare class PdfStream {
+      readonly dict: PdfDict;
+      readonly data: Uint8Array;
+      constructor(dict: PdfDict, data: Uint8Array);
+  }
+  /** Create a PDF Name value. */
+  export declare function name(n: string): PdfName;
+  /** Create an indirect reference to a PDF object. */
+  export declare function ref(objNum: number): PdfRef;
+  /** Create a PDF array. */
+  export declare function array(...items: PdfValue[]): PdfArray;
+  /** Create a PDF dictionary. */
+  export declare function dict(): PdfDict;
+  /**
+   * Serialize a PdfValue to its PDF text representation.
+   * This is the core serializer — converts JS values to PDF syntax.
+   */
+  export declare function serializeValue(val: PdfValue): string;
+  /** Options for createDocument(). */
+  export interface DocumentOptions {
+      /** Theme name (from ha:doc-core). Default: 'corporate-blue'. */
+      theme?: string;
+      /** Page size name or custom dimensions. Default: 'a4'. */
+      pageSize?: string | PageSize;
+      /** Document title (appears in PDF metadata). */
+      title?: string;
+      /** Document author. */
+      author?: string;
+      /** Document subject. */
+      subject?: string;
+      /** Document creator application name. Default: 'HyperAgent'. */
+      creator?: string;
+      /** If true, content streams are not compressed (for debugging). */
+      debug?: boolean;
+  }
+  /** Options for drawText(). */
+  export interface DrawTextOptions {
+      /** Font size in points. Default: 12. */
+      fontSize?: number;
+      /** Standard font name. Default: 'Helvetica'. */
+      font?: string;
+      /** Text colour as 6-char hex (no #). Uses theme foreground if omitted. */
+      color?: string;
+      /**
+       * Text alignment relative to the X position.
+       * 'left' (default): X is the left edge.
+       * 'center': X is the center point — text extends equally left and right.
+       * 'right': X is the right edge — text extends left from X.
+       */
+      align?: "left" | "center" | "right";
+  }
+  /** Options for drawRect(). */
+  export interface DrawRectOptions {
+      /** Fill colour as 6-char hex (no #). */
+      fill?: string;
+      /** Stroke colour as 6-char hex (no #). */
+      stroke?: string;
+      /** Line width in points. Default: 1. */
+      lineWidth?: number;
+  }
+  /** Options for drawLine(). */
+  export interface DrawLineOptions {
+      /** Stroke colour as 6-char hex (no #). */
+      color?: string;
+      /** Line width in points. Default: 1. */
+      lineWidth?: number;
+  }
+  /** Options for drawImage(). */
+  export interface DrawImageOptions {
+      /** Image data as Uint8Array (JPEG or PNG). Format auto-detected. */
+      data: Uint8Array;
+      /** X position from left (points). */
+      x: number;
+      /** Y position from top (points). */
+      y: number;
+      /** Display width in points. */
+      width: number;
+      /** Display height in points. */
+      height: number;
+  }
+  /**
+   * PDF document builder. Created by createDocument().
+   *
+   * Usage:
+   *   const doc = createDocument({ theme: 'light-clean' });
+   *   doc.addPage();
+   *   doc.drawText("Hello", 72, 72);
+   *   const bytes = doc.buildPdf();
+   */
+  export interface PdfDocument {
+      /** The active theme. */
+      readonly theme: Theme;
+      /** Default page size for new pages. */
+      readonly pageSize: PageSize;
+      /** Number of pages currently in the document. */
+      readonly pageCount: number;
+      /** Whether debug mode is enabled (no stream compression). */
+      readonly debug: boolean;
+      /**
+       * Add a new page to the document.
+       * @param size - Override page size for this page. Uses document default if omitted.
+       */
+      addPage(size?: PageSize): void;
+      /**
+       * Draw text on the current page.
+       * Position is in points from the top-left corner of the page.
+       * @param text - Text to draw
+       * @param x - X position from left edge (points)
+       * @param y - Y position from top edge (points)
+       * @param opts - Font, size, colour options
+       */
+      drawText(text: string, x: number, y: number, opts?: DrawTextOptions): void;
+      /**
+       * Draw a rectangle on the current page.
+       * @param x - Left edge from page left (points)
+       * @param y - Top edge from page top (points)
+       * @param w - Width (points)
+       * @param h - Height (points)
+       * @param opts - Fill, stroke, line width
+       */
+      drawRect(x: number, y: number, w: number, h: number, opts?: DrawRectOptions): void;
+      /**
+       * Draw a line on the current page.
+       * @param x1 - Start X from left (points)
+       * @param y1 - Start Y from top (points)
+       * @param x2 - End X from left (points)
+       * @param y2 - End Y from top (points)
+       * @param opts - Colour, line width
+       */
+      drawLine(x1: number, y1: number, x2: number, y2: number, opts?: DrawLineOptions): void;
+      /**
+       * Build the PDF document as a Uint8Array.
+       * @returns Complete PDF file as bytes
+       */
+      buildPdf(): Uint8Array;
+      /**
+       * Draw an image on the current page.
+       * Supports JPEG and PNG (format auto-detected from data bytes).
+       * JPEG is embedded directly (DCTDecode). PNG pixel data is FlateDecode compressed.
+       * @param opts - Image data, position, and display dimensions
+       */
+      drawImage(opts: DrawImageOptions): void;
+  }
+  /**
+   * Create a new PDF document.
+   * @param opts - Document options (theme, page size, metadata, debug mode)
+   * @returns PdfDocument builder
+   */
+  export declare function createDocument(opts?: DocumentOptions): PdfDocument;
+  /**
+   * An opaque flow layout element produced by element builder functions.
+   * Cannot be constructed from raw strings by LLM code.
+   */
+  export interface PdfElement {
+      /** @internal Element kind for the layout engine. */
+      readonly _kind: string;
+      /** @internal Element data for rendering. */
+      readonly _data: unknown;
+  }
+  /**
+   * Create a branded PdfElement. Internal factory — not for LLM use.
+   * @internal
+   */
+  export declare function _createPdfElement(kind: string, data: unknown): PdfElement;
+  /**
+   * Check whether a value is a genuine PdfElement from a builder function.
+   * Uses the private symbol brand — cannot be forged by LLM code.
+   */
+  export declare function isPdfElement(x: unknown): x is PdfElement;
+  /** Page margins in points. */
+  export interface Margins {
+      top: number;
+      right: number;
+      bottom: number;
+      left: number;
+  }
+  /** Default margins: 1 inch on all sides. */
+  export declare const DEFAULT_MARGINS: Margins;
+  /**
+   * Wrap a line of text to fit within a given width.
+   * Splits at word boundaries (spaces). Long words that exceed the width
+   * are placed on their own line (never broken mid-word in Phase 2).
+   *
+   * @param text - Text to wrap
+   * @param font - Font name for width measurement
+   * @param fontSize - Font size in points
+   * @param maxWidth - Maximum line width in points
+   * @returns Array of lines (strings)
+   */
+  export declare function wrapText(text: string, font: string, fontSize: number, maxWidth: number): string[];
+  /** A single drawing operation within a chart. */
+  export interface ChartDrawOp {
+      /** Operation type. */
+      type: "text" | "rect" | "line" | "polygon";
+      /** X coordinate relative to chart origin. */
+      x: number;
+      /** Y coordinate relative to chart origin. */
+      y: number;
+      /** For text: the string to draw. */
+      text?: string;
+      /** For text: font name. */
+      font?: string;
+      /** For text/rect: font size or line width. */
+      fontSize?: number;
+      /** For text/rect/line: colour as 6-char hex. */
+      color?: string;
+      /** For rect: width. */
+      w?: number;
+      /** For rect: height. */
+      h?: number;
+      /** For rect: fill colour. */
+      fill?: string;
+      /** For rect/line/polygon: stroke colour. */
+      stroke?: string;
+      /** For line: end X relative to chart origin. */
+      x2?: number;
+      /** For line: end Y relative to chart origin. */
+      y2?: number;
+      /** For rect/line/polygon: line width. */
+      lineWidth?: number;
+      /** For polygon: array of [x, y] points relative to chart origin. */
+      points?: Array<[number, number]>;
+  }
+  /** Options for paragraph(). */
+  export interface ParagraphOptions {
+      /** Text content. */
+      text: string;
+      /** Font size in points. Default: 11. */
+      fontSize?: number;
+      /** Standard font name. Default: 'Helvetica'. */
+      font?: string;
+      /** Text colour as 6-char hex. Uses theme foreground if omitted. */
+      color?: string;
+      /** Use bold font variant. Default: false. */
+      bold?: boolean;
+      /** Use italic/oblique font variant. Default: false. */
+      italic?: boolean;
+      /** Text alignment. Default: 'left'. */
+      align?: "left" | "center" | "right";
+      /** Line height multiplier. Default: 1.4. */
+      lineHeight?: number;
+      /** Space before paragraph in points. Default: 0. */
+      spaceBefore?: number;
+      /** Space after paragraph in points. Default: 6. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a paragraph element for flow layout.
+   * Text is automatically word-wrapped to fit within page margins.
+   *
+   * @param opts - ParagraphOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function paragraph(opts: ParagraphOptions): PdfElement;
+  /** Options for heading(). */
+  export interface HeadingOptions {
+      /** Heading text. */
+      text: string;
+      /**
+       * Heading level 1-6 (1 = largest). Default: 1.
+       * Font sizes: 1=28pt, 2=22pt, 3=18pt, 4=15pt, 5=13pt, 6=11pt.
+       * Approximate total heights (text + spacing):
+       *   level 1 ≈ 60pt, level 2 ≈ 45pt, level 3 ≈ 35pt
+       */
+      level?: number;
+      /** Text colour as 6-char hex. Uses theme foreground if omitted. */
+      color?: string;
+      /** Space before heading in points. Default: 16 for level 1-2, 10 for 3-6. */
+      spaceBefore?: number;
+      /** Space after heading in points. Default: 8 for level 1-2, 6 for 3-6. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a heading element for flow layout.
+   * Font size is auto-determined from level (1=28pt, 2=22pt, ..., 6=11pt).
+   * Always uses bold font. Includes spacing before and after.
+   *
+   * @param opts - HeadingOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function heading(opts: HeadingOptions): PdfElement;
+  /** Options for sectionHeading(). */
+  export interface SectionHeadingOptions {
+      /** Heading text. */
+      text: string;
+      /** Heading level (1-6). Default: 2. */
+      level?: number;
+      /** Heading colour as 6-char hex. Uses theme foreground if omitted. */
+      color?: string;
+  }
+  /**
+   * Create a section heading with a rule underneath.
+   * Returns a single PdfElement (heading + rule combined).
+   *
+   * @param opts - SectionHeadingOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function sectionHeading(opts: SectionHeadingOptions): PdfElement;
+  /** Options for jobEntry(). */
+  export interface JobEntryOptions {
+      /** Job title (e.g. "Senior Software Engineer"). */
+      title: string;
+      /** Company or organization name. */
+      company: string;
+      /** Date range (e.g. "2022 – Present"). */
+      dates: string;
+      /** Bullet point descriptions. */
+      bullets: string[];
+      /** Font size for bullets. Default: 10. */
+      fontSize?: number;
+  }
+  /**
+   * Create a resume/CV job entry: title+company on left, dates on right,
+   * bullet points below. Common pattern for experience sections.
+   *
+   * @param opts - JobEntryOptions
+   * @returns Array of PdfElements (auto-flattened by addContent)
+   */
+  export declare function jobEntry(opts: JobEntryOptions): PdfElement[];
+  /** Options for letterhead(). */
+  export interface LetterheadOptions {
+      /** Company name (rendered large and bold). */
+      companyName: string;
+      /** Address lines. */
+      address?: string[];
+      /** Phone number. */
+      phone?: string;
+      /** Email address. */
+      email?: string;
+      /** Accent colour as 6-char hex. Uses theme accent1 if omitted. */
+      color?: string;
+  }
+  /**
+   * Create a letterhead block: company name, address, contact info, and separator.
+   * Common pattern for business letters, invoices, and proposals.
+   *
+   * @param opts - LetterheadOptions
+   * @returns Array of PdfElements (auto-flattened by addContent)
+   */
+  export declare function letterhead(opts: LetterheadOptions): PdfElement[];
+  /** Options for bulletList(). */
+  export interface BulletListOptions {
+      /** List items (strings). */
+      items: string[];
+      /** Font size in points. Default: 11. */
+      fontSize?: number;
+      /** Standard font name. Default: 'Helvetica'. */
+      font?: string;
+      /** Text colour as 6-char hex. Uses theme foreground if omitted. */
+      color?: string;
+      /** Bullet character. Default: '•'. */
+      bulletChar?: string;
+      /** Indent for text after bullet in points. Default: 18. */
+      indent?: number;
+      /** Line height multiplier. Default: 1.4. */
+      lineHeight?: number;
+      /** Space before list in points. Default: 4. */
+      spaceBefore?: number;
+      /** Space after list in points. Default: 8. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a bulleted list element for flow layout.
+   *
+   * @param opts - BulletListOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function bulletList(opts: BulletListOptions): PdfElement;
+  /** Options for numberedList(). */
+  export interface NumberedListOptions {
+      /** List items (strings). */
+      items: string[];
+      /** Font size in points. Default: 11. */
+      fontSize?: number;
+      /** Standard font name. Default: 'Helvetica'. */
+      font?: string;
+      /** Text colour as 6-char hex. Uses theme foreground if omitted. */
+      color?: string;
+      /** Indent for text after number in points. Default: 22. */
+      indent?: number;
+      /** Line height multiplier. Default: 1.4. */
+      lineHeight?: number;
+      /** Space before list in points. Default: 4. */
+      spaceBefore?: number;
+      /** Space after list in points. Default: 8. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a numbered list element for flow layout.
+   *
+   * @param opts - NumberedListOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function numberedList(opts: NumberedListOptions): PdfElement;
+  /**
+   * Create a vertical spacer element.
+   * @param height - Height in points
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function spacer(height: number): PdfElement;
+  /**
+   * Create a page break element. Forces content after this to start
+   * on a new page.
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function pageBreak(): PdfElement;
+  /** Options for rule(). */
+  export interface RuleOptions {
+      /** Line thickness in points. Default: 0.5. */
+      thickness?: number;
+      /** Line colour as 6-char hex. Uses theme subtle colour if omitted. */
+      color?: string;
+      /** Space above the rule in points. Default: 8. */
+      marginTop?: number;
+      /** Space below the rule in points. Default: 8. */
+      marginBottom?: number;
+  }
+  /**
+   * Create a horizontal rule element.
+   * @param opts - RuleOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function rule(opts?: RuleOptions): PdfElement;
+  /** Options for twoColumn(). */
+  export interface TwoColumnOptions {
+      /** Left column elements. */
+      left: PdfElement[];
+      /** Right column elements. */
+      right: PdfElement[];
+      /** Gap between columns in points. Default: 24. */
+      gap?: number;
+      /** Left column width as ratio of content width (0-1). Default: 0.5 (equal). */
+      ratio?: number;
+      /** Space before in points. Default: 0. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 8. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a two-column inline layout element for flow content.
+   * Renders left and right elements side by side within addContent().
+   * Unlike twoColumnPage(), this does NOT create a new page — it flows
+   * inline with other elements.
+   *
+   * @param opts - TwoColumnOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function twoColumn(opts: TwoColumnOptions): PdfElement;
+  /** Options for columns(). */
+  export interface ColumnsOptions {
+      /** Array of column content. Each entry is an array of PdfElements for that column. */
+      cols: PdfElement[][];
+      /**
+       * Column width ratios. Length must match cols.length. Values sum to ~1.0.
+       * Default: equal widths (e.g. [0.333, 0.333, 0.333] for 3 columns).
+       */
+      widths?: number[];
+      /** Gap between columns in points. Default: 16. */
+      gap?: number;
+      /** Space before in points. Default: 0. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 8. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create an N-column layout element for flow content.
+   * Supports 2-6 columns with independent element arrays per column.
+   * For simple two-column layouts, twoColumn() is more convenient.
+   *
+   * @param opts - ColumnsOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function columns(opts: ColumnsOptions): PdfElement;
+  /** Style definition for table rendering. */
+  export interface TableStyle {
+      /** Header row background colour (6-char hex). */
+      headerBg: string;
+      /** Header text colour (6-char hex). */
+      headerFg: string;
+      /** Header font. */
+      headerFont: string;
+      /** Body text colour (6-char hex). */
+      bodyFg: string;
+      /** Body font. */
+      bodyFont: string;
+      /** Alternating row background colour (6-char hex), or empty for none. */
+      altRowBg: string;
+      /** Border colour (6-char hex). */
+      borderColor: string;
+      /** Border line width in points. */
+      borderWidth: number;
+  }
+  /** Built-in table styles matching PPTX table styles. */
+  export declare const TABLE_STYLES: Record<string, TableStyle>;
+  /** Options for table(). */
+  /** Column definition for the columns-based table API. */
+  export interface ColumnDef {
+      /** Column header text. */
+      header: string;
+      /** Column width as a ratio (0-1) of total table width. Auto if omitted. */
+      width?: number;
+      /** Text alignment for this column: "left", "center", or "right". */
+      align?: string;
+  }
+  export interface TableOptions {
+      /** Column header texts. Use EITHER headers+rows OR columns+rows. */
+      headers?: string[];
+      /** Row data — each row is an array of cell strings. Must match headers length. */
+      rows?: string[][];
+      /**
+       * Alternative column-based definition (instead of headers).
+       * Each column specifies header text, optional width ratio, and alignment.
+       * If provided, headers are derived from this automatically.
+       */
+      columns?: ColumnDef[];
+      /** Font size in points. Default: 10. */
+      fontSize?: number;
+      /** Table style preset: 'default', 'dark', 'minimal', 'corporate', 'emerald', or custom TableStyle. */
+      style?: string | TableStyle;
+      /** Fixed column widths in points or ratios. Auto-calculated if omitted. */
+      colWidths?: number[];
+      /**
+       * Per-column text alignment. Array matching headers length.
+       * E.g. ["left", "center", "right", "right"] for a table with 4 columns.
+       * Default: all "left".
+       */
+      columnAlign?: ("left" | "center" | "right")[];
+      /**
+       * Compact mode: reduces row padding for information-dense layouts.
+       * Row height drops from ~2.2x to ~1.6x fontSize.
+       * Default: false.
+       */
+      compact?: boolean;
+      /**
+       * Optional footer/totals row rendered with bold styling and a thicker
+       * top border. Common for invoice totals, summary rows.
+       * Must have the same number of cells as headers.
+       */
+      footerRow?: string[];
+      /**
+       * Font name for table body text. Default: 'Helvetica'.
+       * Use a custom font name registered via registerCustomFont() for
+       * Unicode characters outside WinAnsiEncoding.
+       */
+      font?: string;
+  }
+  /**
+   * Create a data table element for flow layout.
+   * Renders with header row, borders, and alternating row colours.
+   *
+   * Accepts EITHER { headers, rows } OR { columns, rows } format.
+   * LLMs use both interchangeably — we handle both.
+   *
+   * @param opts - TableOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function table(opts: TableOptions): PdfElement;
+  /** Options for kvTable(). */
+  export interface KvTableOptions {
+      /** Key-value pairs. Each item has a key, value, optional bold, and optional separator above. */
+      items?: {
+          key: string;
+          value: string;
+          bold?: boolean;
+          separator?: boolean;
+      }[];
+      /** Font size in points. Default: 10. */
+      fontSize?: number;
+      /** Table style preset: 'default', 'dark', 'minimal', 'corporate', 'emerald', or custom TableStyle. */
+      style?: string | TableStyle;
+      /**
+       * Width for the key column. If <= 1, treated as proportion of total width.
+       * If > 1, treated as absolute points. Default: 0.35 (35% of width).
+       */
+      keyWidth?: number;
+      /**
+       * Maximum width for the entire kvTable in points.
+       * If set, table won't exceed this width. Content area width is used if omitted.
+       */
+      maxWidth?: number;
+      /**
+       * Horizontal alignment of the kvTable within the content area.
+       * Only meaningful when maxWidth is set (table narrower than content area).
+       * Default: 'left'.
+       */
+      align?: "left" | "center" | "right";
+      /** Font name for text. Use custom font for Unicode support. */
+      font?: string;
+  }
+  /**
+   * Create a key-value table element for flow layout.
+   * Two-column layout: Key | Value.
+   *
+   * @param opts - KvTableOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function kvTable(opts: KvTableOptions): PdfElement;
+  /** Column option for comparisonTable. */
+  export interface ComparisonOption {
+      /** Column header name (e.g. "Basic", "Pro", "Enterprise"). */
+      name: string;
+      /** Values for each feature row. Booleans render as ✓/✗, strings render as-is. */
+      values: (boolean | string)[];
+  }
+  /** Options for comparisonTable(). */
+  export interface ComparisonTableOptions {
+      /** Feature names (row labels). */
+      features: string[];
+      /**
+       * Options to compare. Each has a name and values matching features.
+       * Values can be booleans (rendered as ✓/✗) or strings (rendered as-is).
+       */
+      options: ComparisonOption[];
+      /** Font size in points. Default: 10. */
+      fontSize?: number;
+      /** Table style preset: 'default', 'dark', 'minimal', 'corporate', 'emerald', or custom TableStyle. */
+      style?: string | TableStyle;
+  }
+  /**
+   * Create a comparison table element for flow layout.
+   * Feature matrix with ✓/✗ marks.
+   *
+   * @param opts - ComparisonTableOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function comparisonTable(opts: ComparisonTableOptions): PdfElement;
+  /** Options for image(). */
+  export interface ImageOptions {
+      /** Image data as Uint8Array (JPEG or PNG). */
+      data: Uint8Array;
+      /** Display width in points. If omitted, auto-calculated from height + aspect ratio. */
+      width?: number;
+      /** Display height in points. If omitted, auto-calculated from width + aspect ratio. */
+      height?: number;
+      /** Horizontal alignment within content area. Default: 'left'. */
+      align?: "left" | "center" | "right";
+      /** Optional caption text below the image. */
+      caption?: string;
+      /** Caption font size in points. Default: 9. */
+      captionFontSize?: number;
+  }
+  /**
+   * Create an image element for flow layout.
+   * Supports JPEG and PNG. At least one of width or height must be specified.
+   * The other dimension is auto-calculated to preserve aspect ratio.
+   *
+   * @param opts - ImageOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function image(opts: ImageOptions): PdfElement;
+  /** Options for addContent(). */
+  export interface AddContentOptions {
+      /** Page margins. Default: 1 inch on all sides. */
+      margins?: Partial<Margins>;
+      /**
+       * Maximum pages for this content. If content would exceed this,
+       * spacing (spaceBefore, spaceAfter, lineHeight) is automatically
+       * scaled down to fit. Does NOT reduce font sizes — only whitespace.
+       * Useful for single-page documents (invoices, letters, resumes).
+       *
+       * Example: `addContent(doc, elements, { maxPages: 1 })`
+       */
+      maxPages?: number;
+      /**
+       * Vertically center content on the page. Calculates total content
+       * height and offsets the starting Y position so content is centered.
+       * Useful for title pages and cover pages. Default: false.
+       */
+      verticalCenter?: boolean;
+  }
+  /**
+   * Estimate the total vertical height (in points) that an array of PdfElements
+   * would consume when rendered via addContent(). Does NOT render anything —
+   * purely a measurement function.
+   *
+   * Use this to predict whether content will fit on the current page before
+   * calling addContent(). Heights are approximate (±5%) due to word-wrapping
+   * variations, but accurate enough for layout planning.
+   *
+   * @param elements - Array of PdfElement objects from builder functions
+   * @param opts - Optional: contentWidth (default: letter width minus 1" margins = 468pt)
+   * @returns Total estimated height in points
+   *
+   * @example
+   * const height = estimateHeight([heading({text: "Title"}), paragraph({text: "..."}), chart]);
+   * if (height > 600) { doc.addPage(); } // Won't fit on current page
+   */
+  export declare function estimateHeight(elements: PdfElement[], opts?: {
+      contentWidth?: number;
+  }): number;
+  /**
+   * Flow an array of PdfElements into the document with auto-pagination.
+   *
+   * Elements are rendered top-to-bottom. When content exceeds the available
+   * space on the current page, a new page is automatically added.
+   *
+   * For single-page documents (invoices, letters, resumes), set `maxPages: 1`
+   * to auto-shrink spacing so content fits without overflowing to a second page.
+   *
+   * @param doc - PdfDocument to add content to
+   * @param elements - Array of PdfElement objects from builder functions
+   * @param opts - Layout options: margins, maxPages (set maxPages:1 for single-page docs)
+   * @returns { lastY: number } — the Y position (in points from top) after the last element
+   */
+  export declare function addContent(doc: PdfDocument, elements: PdfElement[], opts?: AddContentOptions): {
+      lastY: number;
+  };
+  /** A single run of text with optional formatting. */
+  export interface TextRun {
+      /** Text content. */
+      text: string;
+      /** Bold. Default: false. */
+      bold?: boolean;
+      /** Italic. Default: false. */
+      italic?: boolean;
+      /** Underline. Default: false. Draws a line under the text. */
+      underline?: boolean;
+      /** Font size override in points. */
+      fontSize?: number;
+      /** Colour override as 6-char hex. */
+      color?: string;
+  }
+  /** A paragraph of mixed-format text runs. */
+  export interface RichParagraph {
+      /** Text runs within this paragraph. */
+      runs: TextRun[];
+      /** Text alignment. Default: 'left'. */
+      align?: "left" | "center" | "right";
+  }
+  /** Options for richText(). */
+  export interface RichTextOptions {
+      /** Paragraphs of mixed-format text. */
+      paragraphs: RichParagraph[];
+      /** Base font size in points. Default: 11. */
+      fontSize?: number;
+      /** Base font name. Default: 'Helvetica'. */
+      font?: string;
+      /** Line height multiplier. Default: 1.4. */
+      lineHeight?: number;
+      /** Space before in points. Default: 0. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 6. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a rich text element with mixed formatting per paragraph.
+   * Each paragraph contains runs that can individually be bold, italic,
+   * have different sizes or colours.
+   *
+   * Accepts "runs" or "spans" for the text segments (LLMs use both).
+   *
+   * @param opts - RichTextOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function richText(opts: RichTextOptions): PdfElement;
+  /** Options for codeBlock(). */
+  export interface CodeBlockOptions {
+      /** Source code text. */
+      code: string;
+      /** Font size in points. Default: 9. */
+      fontSize?: number;
+      /** Line height multiplier. Default: 1.3. */
+      lineHeight?: number;
+      /** Background colour as 6-char hex. Default: 'F5F5F5'. */
+      bgColor?: string;
+      /** Text colour as 6-char hex. Default: '333333'. */
+      fgColor?: string;
+      /** Border colour as 6-char hex. Default: 'DDDDDD'. */
+      borderColor?: string;
+      /** Padding inside the block in points. Default: 8. */
+      padding?: number;
+      /** Space before in points. Default: 6. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 6. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a code block element with monospaced font and background.
+   *
+   * @param opts - CodeBlockOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function codeBlock(opts: CodeBlockOptions): PdfElement;
+  /** Options for quote(). */
+  export interface QuoteOptions {
+      /** Quote text. */
+      text: string;
+      /** Attribution / author name. */
+      author?: string;
+      /** Font size in points. Default: 12. */
+      fontSize?: number;
+      /** Accent colour for left border. Uses theme accent1 if omitted. */
+      accentColor?: string;
+      /** Render quote text in italic. Default: true. */
+      italic?: boolean;
+      /** Line height multiplier. Default: 1.5. */
+      lineHeight?: number;
+      /** Space before in points. Default: 12. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 12. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a quote block element with left accent border and optional author.
+   *
+   * @param opts - QuoteOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function quote(opts: QuoteOptions): PdfElement;
+  /** Options for metricCard(). */
+  export interface MetricCardOptions {
+      /** The metric value to display prominently (e.g. "$8.2M", "142K", "73%"). */
+      value: string;
+      /** Label describing the metric (e.g. "Total Revenue", "Customer Retention"). */
+      label: string;
+      /** Accent colour for the value text as 6-char hex. Uses theme accent1 if omitted. */
+      color?: string;
+      /** Trend indicator shown next to the value (e.g. "+14%", "-2.3%", "+6 pts"). Green for +, red for -. */
+      change?: string;
+      /** Background colour as 6-char hex. Default: light grey "F5F5F5". Set to "" for no background. */
+      bgColor?: string;
+      /** Card width in points. Default: auto-sized to fit content area. */
+      width?: number;
+  }
+  /**
+   * Create a metric card element for flow layout.
+   * Renders a prominent value with a smaller label underneath, in an
+   * optional coloured box. Ideal for KPI dashboards.
+   *
+   * Use multiple metricCard() elements inside a twoColumn() for side-by-side KPIs.
+   *
+   * @param opts - MetricCardOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function metricCard(opts: MetricCardOptions): PdfElement;
+  /** Options for calloutBox(). */
+  export interface CalloutBoxOptions {
+      /** Body text content. */
+      text: string;
+      /** Optional title rendered in bold above the body. */
+      title?: string;
+      /** Background colour as 6-char hex. Default: theme-based light tint. */
+      bgColor?: string;
+      /** Left accent border colour as 6-char hex. Default: theme accent1. */
+      borderColor?: string;
+      /** Body text colour as 6-char hex. */
+      textColor?: string;
+      /** Title text colour as 6-char hex. */
+      titleColor?: string;
+      /** Font size in points. Default: 10. */
+      fontSize?: number;
+      /** Space before in points. Default: 8. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 12. */
+      spaceAfter?: number;
+      /** Font name for text. Use custom font for Unicode support. */
+      font?: string;
+  }
+  /**
+   * Create a callout/highlight box element for flow content.
+   * Renders as a colored background box with optional left accent border,
+   * optional bold title, and body text. Ideal for key takeaways, warnings,
+   * or info boxes in reports and dashboards.
+   *
+   * @param opts - CalloutBoxOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function calloutBox(opts: CalloutBoxOptions): PdfElement;
+  /** Options for textBlock(). */
+  export interface TextBlockOptions {
+      /** Array of text lines to render with tight spacing. */
+      lines: string[];
+      /** Font size in points. Default: 11. */
+      fontSize?: number;
+      /** Font name. Default: 'Helvetica'. */
+      font?: string;
+      /** Text colour as 6-char hex. Uses theme foreground if omitted. */
+      color?: string;
+      /** Bold all lines. Default: false. */
+      bold?: boolean;
+      /**
+       * Make the first line bold (e.g. name in an address block).
+       * Overrides bold for just the first line. Default: false.
+       */
+      firstLineBold?: boolean;
+      /** Line height multiplier. Default: 1.2 (tight). */
+      lineHeight?: number;
+      /** Space before block in points. Default: 0. */
+      spaceBefore?: number;
+      /** Space after block in points. Default: 8. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a compact text block for multi-line content like addresses,
+   * contact info, or any text that needs tight line spacing without
+   * individual paragraph() calls per line.
+   *
+   * @param opts - TextBlockOptions
+   * @returns PdfElement for use with addContent()
+   *
+   * @example
+   * textBlock({ lines: ["Jane Smith", "VP Engineering", "Acme Corp", "123 Main St", "City, ST 12345"] })
+   */
+  export declare function textBlock(opts: TextBlockOptions): PdfElement;
+  /** Options for signatureLine(). */
+  export interface SignatureLineOptions {
+      /** Person's name displayed below the line. */
+      name: string;
+      /** Job title or role, displayed below the name. */
+      title?: string;
+      /** Width of the signature line in points. Default: 200. */
+      lineWidth?: number;
+      /** Blank space above the line for a physical signature. Default: 40. */
+      spaceAbove?: number;
+      /** Font size for name and title. Default: 10. */
+      fontSize?: number;
+      /** Space before in points. Default: 8. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 12. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a signature line element for formal documents.
+   * Renders blank space (for physical signature), a horizontal line,
+   * the person's name, and optional title below.
+   *
+   * @param opts - SignatureLineOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function signatureLine(opts: SignatureLineOptions): PdfElement;
+  /** Options for link(). */
+  export interface LinkOptions {
+      /** Display text for the link. */
+      text: string;
+      /** URL to link to. */
+      url: string;
+      /** Font size in points. Default: 11. */
+      fontSize?: number;
+      /** Link text colour as 6-char hex. Default: "2563EB" (blue). */
+      color?: string;
+      /** Space before in points. Default: 0. */
+      spaceBefore?: number;
+      /** Space after in points. Default: 6. */
+      spaceAfter?: number;
+  }
+  /**
+   * Create a clickable hyperlink element. Renders as coloured text with
+   * a PDF Link annotation that opens the URL when clicked.
+   *
+   * @param opts - LinkOptions
+   * @returns PdfElement for use with addContent()
+   */
+  export declare function link(opts: LinkOptions): PdfElement;
+  /** A single TOC entry. */
+  export interface TocEntry {
+      /** Section title. */
+      title: string;
+      /** Page number (as text). */
+      page: string;
+      /** Indent level (0 = top, 1 = sub-section). Default: 0. */
+      level?: number;
+  }
+  /** Options for tableOfContents(). */
+  export interface TableOfContentsOptions {
+      /** TOC entries with title, page number, and optional level. */
+      entries: TocEntry[];
+      /** TOC heading text. Default: "Table of Contents". */
+      heading?: string;
+      /** Font size for entries. Default: 11. */
+      fontSize?: number;
+  }
+  /**
+   * Create a table of contents element. Renders a heading followed by
+   * lines with title on the left, dots in the middle, and page number
+   * on the right. The LLM provides the entries explicitly.
+   *
+   * @param opts - TableOfContentsOptions
+   * @returns Array of PdfElements (auto-flattened by addContent)
+   */
+  export declare function tableOfContents(opts: TableOfContentsOptions): PdfElement[];
+  /** Options for titlePage(). */
+  export interface TitlePageOptions {
+      /** Document title. */
+      title: string;
+      /** Subtitle / tagline. */
+      subtitle?: string;
+      /** Author name. */
+      author?: string;
+      /** Date string. */
+      date?: string;
+      /**
+       * Override the document theme for this page only.
+       * Use a theme name like 'corporate-blue', 'dark-navy', etc.
+       * The rest of the document keeps its original theme.
+       */
+      theme?: string;
+  }
+  /**
+   * Add a title/cover page to the document.
+   * Renders a centered title with optional subtitle, author, and date.
+   *
+   * @param doc - PdfDocument
+   * @param opts - TitlePageOptions
+   */
+  export declare function titlePage(doc: PdfDocument, opts: TitlePageOptions): void;
+  /** Options for contentPage(). */
+  export interface ContentPageOptions {
+      /** Page title. */
+      title: string;
+      /** Content elements. */
+      content: PdfElement[];
+      /** Page margins override. */
+      margins?: Partial<Margins>;
+  }
+  /**
+   * Add a titled content page. Renders a heading then flows content elements.
+   *
+   * @param doc - PdfDocument
+   * @param opts - ContentPageOptions
+   */
+  export declare function contentPage(doc: PdfDocument, opts: ContentPageOptions): void;
+  /** Options for twoColumnPage(). */
+  export interface TwoColumnPageOptions {
+      /** Page title. */
+      title: string;
+      /** Left column elements. */
+      left: PdfElement[];
+      /** Right column elements. */
+      right: PdfElement[];
+      /** Gap between columns in points. Default: 24. */
+      gap?: number;
+      /** Page margins override. */
+      margins?: Partial<Margins>;
+  }
+  /**
+   * Add a two-column page with a title. Renders left column then right column
+   * side by side below the title.
+   *
+   * NOTE: True side-by-side columns require tracking two independent cursors.
+   * Phase 4 renders left column fully, then right column fully on the same page.
+   * This is a simplified approach — full column balancing comes in a later phase.
+   *
+   * @param doc - PdfDocument
+   * @param opts - TwoColumnPageOptions
+   */
+  export declare function twoColumnPage(doc: PdfDocument, opts: TwoColumnPageOptions): void;
+  /** Options for quotePage(). */
+  export interface QuotePageOptions {
+      /** Quote text. */
+      quote: string;
+      /** Author / attribution. */
+      author?: string;
+      /** Author role / title. */
+      role?: string;
+  }
+  /**
+   * Add a full-page quote with optional author attribution.
+   * Centres the quote vertically with large italic text.
+   *
+   * @param doc - PdfDocument
+   * @param opts - QuotePageOptions
+   */
+  export declare function quotePage(doc: PdfDocument, opts: QuotePageOptions): void;
+  /** Options for addPageNumbers(). */
+  export interface PageNumberOptions {
+      /** Position on page. Default: 'bottom-center'. */
+      position?: "bottom-left" | "bottom-center" | "bottom-right";
+      /** Font size in points. Default: 9. */
+      fontSize?: number;
+      /** Starting page number. Default: 1. */
+      startNumber?: number;
+      /** Number of pages to skip at the start (e.g. skip title page). Default: 0. */
+      skipPages?: number;
+  }
+  /**
+   * Add page numbers to all pages (or a range). Call AFTER all content,
+   * BEFORE buildPdf(). Numbers are drawn at the bottom of each page.
+   *
+   * @param doc - PdfDocument with all pages already added
+   * @param opts - PageNumberOptions
+   */
+  export declare function addPageNumbers(doc: PdfDocument, opts?: PageNumberOptions): void;
+  /** Options for addFooter(). */
+  export interface FooterOptions {
+      /** Footer text. */
+      text: string;
+      /** Text alignment. Default: 'center'. */
+      align?: "left" | "center" | "right";
+      /** Font size in points. Default: 8. */
+      fontSize?: number;
+      /** Number of pages to skip at the start. Default: 0. */
+      skipPages?: number;
+  }
+  /**
+   * Add a footer to all pages. Call AFTER all content, BEFORE buildPdf().
+   *
+   * @param doc - PdfDocument
+   * @param opts - FooterOptions
+   */
+  export declare function addFooter(doc: PdfDocument, opts: FooterOptions): void;
+  /** Options for addWatermark(). */
+  export interface WatermarkOptions {
+      /** Watermark text (e.g. "DRAFT", "CONFIDENTIAL", "SAMPLE"). */
+      text: string;
+      /** Font size in points. Default: 72. */
+      fontSize?: number;
+      /** Text colour as 6-char hex. Default: "CCCCCC" (light grey). */
+      color?: string;
+      /** Opacity from 0.0 (invisible) to 1.0 (opaque). Default: 0.15. */
+      opacity?: number;
+      /** Rotation angle in degrees. Default: -45 (diagonal bottom-left to top-right). */
+      angle?: number;
+      /** Skip the first N pages (e.g. skip title page). Default: 0. */
+      skipPages?: number;
+  }
+  /**
+   * Add a diagonal watermark to all pages (or a subset).
+   * Renders semi-transparent rotated text centered on each page.
+   * Call this AFTER all content, page numbers, and footers are added.
+   *
+   * @param doc - PdfDocument
+   * @param opts - WatermarkOptions
+   */
+  export declare function addWatermark(doc: PdfDocument, opts: WatermarkOptions): void;
+  /** Serialized document state for cross-handler persistence. */
+  export interface SerializedDocument {
+      /** Serialization format version. */
+      version: 1;
+      /** Theme name. */
+      theme: string;
+      /** Page size. */
+      pageSize: PageSize;
+      /** Debug flag. */
+      debug: boolean;
+      /** Metadata. */
+      meta: {
+          title: string;
+          author: string;
+          subject: string;
+          creator: string;
+      };
+      /** Number of pages. */
+      pageCount: number;
+      /** Content ops per page (raw strings). */
+      pages: {
+          contentOps: string[];
+          size: PageSize;
+          imageRefs: string[];
+      }[];
+      /** Registered fonts. */
+      fonts: [string, string][];
+      /** Registered images (base64-encoded data). */
+      images: {
+          id: number;
+          resName: string;
+          data: string;
+          width: number;
+          height: number;
+          filter: string;
+          colorSpace: string;
+      }[];
+  }
+  /**
+   * Serialize a PdfDocument to a JSON-safe object for cross-handler persistence.
+   * Use with ha:shared-state to preserve document state across handler boundaries.
+   *
+   * @param doc - PdfDocument to serialize
+   * @returns SerializedDocument object (JSON-safe)
+   */
+  export declare function serializeDocument(doc: PdfDocument): SerializedDocument;
+  /**
+   * Restore a PdfDocument from a serialized state.
+   * Use with ha:shared-state to restore document state across handler boundaries.
+   *
+   * @param serialized - SerializedDocument from serializeDocument()
+   * @returns PdfDocument with all pages, fonts, and images restored
+   */
+  export declare function restoreDocument(serialized: SerializedDocument): PdfDocument;
+  /**
+   * Validate the document for layout problems that produce garbage output.
+   * Checks:
+   * 1. Text-on-text overlap (two text elements rendering on top of each other)
+   * 2. Content outside page bounds (clipped/invisible text)
+   * 3. Excessive whitespace on interior pages
+   *
+   * Throws descriptive errors so the LLM knows WHAT is wrong and WHERE.
+   *
+   * @param doc - PdfDocument to validate
+   */
+  export declare function validateDocument(doc: PdfDocument): string[];
+  export declare function exportToFile(doc: PdfDocument, path: string, fsWrite: {
+      writeFileBinary: (path: string, data: Uint8Array) => void;
+  }): void;
+  /** Options for registerCustomFont(). */
+  export interface RegisterFontOptions {
+      /** Name to use for this font in drawText/paragraph/etc. */
+      name: string;
+      /** Raw TrueType (.ttf) font file data. */
+      data: Uint8Array;
+  }
+  /**
+   * Register a custom TrueType font for use in the document.
+   * After registration, use the font name in any element's `font` parameter.
+   *
+   * The font is embedded in the PDF so it renders correctly on any viewer.
+   * Supports full Unicode (CJK, Cyrillic, Arabic, etc.) — not limited to
+   * WinAnsiEncoding like the standard 14 fonts.
+   *
+   * @param doc - PdfDocument to register the font in
+   * @param opts - RegisterFontOptions with name and TTF data
+   *
+   * @example
+   * const fontData = fsRead.readFileBinary("DejaVuSans.ttf");
+   * registerCustomFont(doc, { name: "DejaVu", data: fontData });
+   * // Now use "DejaVu" as the font name:
+   * addContent(doc, [paragraph({ text: "Hello 世界", font: "DejaVu" })]);
+   */
+  export declare function registerCustomFont(doc: PdfDocument, opts: RegisterFontOptions): void;
   export {};
 }
 
@@ -777,7 +2196,7 @@ declare module "ha:pptx-tables" {
    * @param opts.style.headerFontSize - Header font size in pt
    * @returns Shape XML fragment for use in slide body
    */
-  export declare function table(opts: TableOptions): string;
+  export declare function table(opts: TableOptions): ShapeFragment;
   export interface KVItem {
       key: string;
       value: string;
@@ -806,7 +2225,7 @@ declare module "ha:pptx-tables" {
    * @param opts - KV table options: { x?, y?, w?, items: Array<{key, value}>, theme?, style? }
    * @returns Shape XML fragment
    */
-  export declare function kvTable(opts: KVTableOptions): string;
+  export declare function kvTable(opts: KVTableOptions): ShapeFragment;
   export interface ComparisonOption {
       /** Column header name */
       name: string;
@@ -853,7 +2272,7 @@ declare module "ha:pptx-tables" {
    * @param opts - REQUIRED: { features: string[], options: Array<{name: string, values: boolean[]}> }. Optional: x?, y?, w?, theme?, style?
    * @returns Shape XML fragment
    */
-  export declare function comparisonTable(opts: ComparisonTableOptions): string;
+  export declare function comparisonTable(opts: ComparisonTableOptions): ShapeFragment;
   export interface TimelineItem {
       /** Phase/milestone label */
       label: string;
@@ -886,7 +2305,7 @@ declare module "ha:pptx-tables" {
    * @param opts - Timeline options: { x?, y?, w?, items: Array<{label, description?, color?}>, theme?, style? }
    * @returns Shape XML fragment (uses table layout)
    */
-  export declare function timeline(opts: TimelineOptions): string;
+  export declare function timeline(opts: TimelineOptions): ShapeFragment;
 }
 
 declare module "ha:pptx" {
@@ -942,7 +2361,7 @@ declare module "ha:pptx" {
   export interface Presentation {
       theme: Theme;
       slideCount: number;
-      addBody(shapes: string | string[], opts?: SlideOptions): void;
+      addBody(shapes: ShapeFragment | ShapeFragment[], opts?: SlideOptions): void;
       build(): Array<{
           name: string;
           data: string | Uint8Array;
@@ -1433,7 +2852,8 @@ declare module "ha:pptx" {
       extraItems?: string[] | string;
   }
   export interface CustomSlideOptions {
-      shapes: string;
+      /** Array of ShapeFragment objects from shape builders (textBox, rect, table, etc.). REQUIRED. */
+      shapes: ShapeFragment | ShapeFragment[];
       background?: string | GradientSpec;
       transition?: string;
       transitionDuration?: number;
@@ -1620,13 +3040,14 @@ declare module "ha:pptx" {
       fontSize?: number;
   }
   export { type Theme };
+  export { type ShapeFragment, isShapeFragment, fragmentsToXml };
   export { table, kvTable, comparisonTable, timeline, TABLE_STYLES, } from "ha:pptx-tables";
   export { contrastRatio };
   export { getThemeNames };
   export { inches, fontSize } from "ha:ooxml-core";
   /**
    * Create a solid fill XML element.
-   * Use for custom slide backgrounds via pres.addSlide(solidFill('000000'), shapes).
+   * Use for shape fills or customSlide({ background }) backgrounds.
    * @param {string} color - Hex color (6 digits, no #)
    * @param {number} [opacity] - Opacity from 0 (transparent) to 1 (opaque). Omit for fully opaque.
    * @returns {string} Solid fill XML
@@ -1657,9 +3078,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.background] - Fill color (hex)
    * @param {number} [opts.lineSpacing] - Line spacing in points
    * @param {boolean} [opts.autoFit] - Auto-scale fontSize to fit text in shape. Use when text length is variable.
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function textBox(opts: TextBoxOptions): string;
+  export declare function textBox(opts: TextBoxOptions): ShapeFragment;
   /**
    * Create a colored rectangle with optional text.
    * @param {Object} opts
@@ -1676,9 +3097,9 @@ declare module "ha:pptx" {
    * @param {number} [opts.cornerRadius] - Corner radius in points
    * @param {string} [opts.borderColor] - Border color
    * @param {number} [opts.borderWidth=1] - Border width in points
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function rect(opts: RectOptions): string;
+  export declare function rect(opts: RectOptions): ShapeFragment;
   /**
    * Create a bulleted list.
    * @param {Object} opts
@@ -1691,9 +3112,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.color] - Text color
    * @param {string} [opts.bulletColor] - Bullet color
    * @param {number} [opts.lineSpacing=24] - Line spacing
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function bulletList(opts: BulletListOptions): string;
+  export declare function bulletList(opts: BulletListOptions): ShapeFragment;
   /**
    * Create a numbered list.
    * @param {Object} opts
@@ -1706,9 +3127,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.color] - Text color
    * @param {number} [opts.lineSpacing=24] - Line spacing
    * @param {number} [opts.startAt=1] - Starting number
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function numberedList(opts: NumberedListOptions): string;
+  export declare function numberedList(opts: NumberedListOptions): ShapeFragment;
   /**
    * Create an image placeholder (colored rect with label).
    * Use this until binary image embedding is supported.
@@ -1720,9 +3141,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.label='Image'] - Placeholder label
    * @param {string} [opts.fill='3D4450'] - Background color (dark gray)
    * @param {string} [opts.color='B0B8C0'] - Label color (light gray, passes WCAG AA on 3D4450)
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function imagePlaceholder(opts: ImagePlaceholderOptions): string;
+  export declare function imagePlaceholder(opts: ImagePlaceholderOptions): ShapeFragment;
   /**
    * Create a big metric display (number + label stacked).
    * @param {Object} opts
@@ -1738,9 +3159,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.labelColor] - Label text color (hex). OMIT to auto-select against background.
    * @param {string} [opts.background] - Background fill
    * @param {boolean} [opts.forceColor] - Set true to bypass WCAG contrast validation for valueColor/labelColor.
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function statBox(opts: StatBoxOptions): string;
+  export declare function statBox(opts: StatBoxOptions): ShapeFragment;
   /**
    * Create a line between two points.
    * @param {Object} opts
@@ -1751,9 +3172,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.color='666666'] - Line color (hex)
    * @param {number} [opts.width=1.5] - Line width in points
    * @param {string} [opts.dash] - Dash style: 'solid', 'dash', 'dot', 'dashDot'
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function line(opts: LineOptions): string;
+  export declare function line(opts: LineOptions): ShapeFragment;
   /**
    * Create an arrow (line with arrowhead) between two points.
    * @param {Object} opts
@@ -1766,9 +3187,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.headType='triangle'] - Arrowhead: 'triangle', 'stealth', 'diamond', 'oval', 'arrow'
    * @param {boolean} [opts.bothEnds=false] - Arrowhead on both ends
    * @param {string} [opts.dash] - Dash style: 'solid', 'dash', 'dot', 'dashDot'
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function arrow(opts: ArrowOptions): string;
+  export declare function arrow(opts: ArrowOptions): ShapeFragment;
   /**
    * Create a circle or ellipse shape.
    * @param {Object} opts
@@ -1782,9 +3203,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.color='FFFFFF'] - Text color
    * @param {string} [opts.borderColor] - Border color
    * @param {number} [opts.borderWidth=1] - Border width in points
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function circle(opts: CircleOptions): string;
+  export declare function circle(opts: CircleOptions): ShapeFragment;
   /**
    * Create a callout box — rounded rectangle with accent left border.
    * Good for highlighting insights, quotes, or key takeaways.
@@ -1798,9 +3219,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.background='F5F5F5'] - Fill color
    * @param {number} [opts.fontSize=14] - Font size
    * @param {string} [opts.color] - Text color (hex). OMIT to auto-select a readable colour against the background. Do NOT hardcode.
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function callout(opts: CalloutOptions): string;
+  export declare function callout(opts: CalloutOptions): ShapeFragment;
   /**
    * Create a preset shape icon.
    *
@@ -1838,9 +3259,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.text] - Optional text inside the shape
    * @param {number} [opts.fontSize=12] - Text font size
    * @param {string} [opts.color='FFFFFF'] - Text color
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function icon(opts: IconOptions): string;
+  export declare function icon(opts: IconOptions): ShapeFragment;
   /**
    * Create a shape from an SVG path string.
    * Enables custom icons, logos, and diagrams using standard SVG path data.
@@ -1875,9 +3296,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.fill] - Fill color (hex, e.g. '2196F3')
    * @param {string} [opts.stroke] - Stroke color (hex)
    * @param {number} [opts.strokeWidth=1] - Stroke width in points
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function svgPath(opts: SvgPathOptions): string;
+  export declare function svgPath(opts: SvgPathOptions): ShapeFragment;
   /**
    * Create a gradient fill XML fragment for use in shapes.
    * Supports transparency for cinematic photo overlays (e.g., transparent-to-black).
@@ -1963,9 +3384,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.align='l'] - Paragraph alignment ('l', 'ctr', 'r')
    * @param {string} [opts.valign='t'] - Vertical alignment ('t', 'ctr', 'b')
    * @param {string} [opts.background] - Fill color (hex)
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function richText(opts: RichTextOptions): string;
+  export declare function richText(opts: RichTextOptions): ShapeFragment;
   /** Options for panel() composite shape */
   export interface PanelOptions {
       /** X position in inches */
@@ -2032,7 +3453,7 @@ declare module "ha:pptx" {
    * @param opts - Panel options
    * @returns Shape XML fragments for all panel elements
    */
-  export declare function panel(opts: PanelOptions): string;
+  export declare function panel(opts: PanelOptions): ShapeFragment;
   /** Options for card() composite shape */
   export interface CardOptions extends PanelOptions {
       /** Accent color for top border (hex). If set, adds a colored stripe at top */
@@ -2057,7 +3478,7 @@ declare module "ha:pptx" {
    * @param opts - Card options
    * @returns Shape XML fragments
    */
-  export declare function card(opts: CardOptions): string;
+  export declare function card(opts: CardOptions): ShapeFragment;
   /**
    * Create a text box with a clickable hyperlink.
    * The entire text box is clickable. For inline hyperlinks within
@@ -2074,9 +3495,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.color='2196F3'] - Text color (default blue)
    * @param {boolean} [opts.underline=true] - Underline text
    * @param {Object} pres - Presentation builder (needed to register the link relationship)
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function hyperlink(opts: HyperlinkOptions, pres: PresentationInternal): string;
+  export declare function hyperlink(opts: HyperlinkOptions, pres: PresentationInternal): ShapeFragment;
   /** Image dimensions in pixels */
   export interface ImageDimensions {
       width: number;
@@ -2140,9 +3561,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.format='png'] - Image format: 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'
    * @param {string} [opts.fit='stretch'] - How to fit image: 'stretch' (distort to fill), 'contain' (fit within, may letterbox), 'cover' (fill, may crop)
    * @param {string} [opts.name] - Optional image name (for the ZIP path)
-   * @returns {string} Shape XML fragment for use in slide body
+   * @returns {ShapeFragment} Branded shape fragment for use in slide body
    */
-  export declare function embedImage(pres: PresentationInternal, opts: EmbedImageOptions): string;
+  export declare function embedImage(pres: PresentationInternal, opts: EmbedImageOptions): ShapeFragment;
   /**
    * Helper to embed an image from a URL with auto-detected format.
    * This combines readBinary() and embedImage() into a simpler workflow.
@@ -2169,11 +3590,11 @@ declare module "ha:pptx" {
    * @param {number} opts.w - Width in inches
    * @param {number} opts.h - Height in inches
    * @param {string} [opts.format] - Override format detection (png, jpg, gif, etc.)
-   * @returns {string} Shape XML fragment for use in slide body
+   * @returns {ShapeFragment} Branded shape fragment for use in slide body
    */
   export declare function embedImageFromUrl(pres: PresentationInternal, opts: EmbedImageOptions & {
       url: string;
-  }): string;
+  }): ShapeFragment;
   /** Slide width in inches (16:9 aspect ratio). */
   export declare const SLIDE_WIDTH_INCHES = 13.333;
   /** Slide height in inches (16:9 aspect ratio). */
@@ -2208,9 +3629,7 @@ declare module "ha:pptx" {
    * @param items - Array of shape XML strings or objects with toString()
    * @returns Combined XML string
    */
-  export declare function shapes(items: Array<string | {
-      toString(): string;
-  } | null | undefined>): string;
+  export declare function shapes(items: Array<ShapeFragment | null | undefined>): ShapeFragment;
   /**
    * Calculate positions for items in equal-width columns.
    * Useful for stat boxes, image cards, or any side-by-side layout.
@@ -2281,9 +3700,9 @@ declare module "ha:pptx" {
    * @param {number} [opts.y=0] - Y position in inches
    * @param {number} [opts.w] - Width in inches (default: full slide width)
    * @param {number} [opts.h] - Height in inches (default: full slide height)
-   * @returns {string} OOXML shape string
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function overlay(opts?: OverlayOptions): string;
+  export declare function overlay(opts?: OverlayOptions): ShapeFragment;
   /**
    * Create a gradient overlay for cinematic effects.
    * Use for half-fades, vignettes, or directional darkening on image slides.
@@ -2311,9 +3730,9 @@ declare module "ha:pptx" {
    * @param {number} [opts.y=0] - Y position in inches
    * @param {number} [opts.w] - Width in inches (default full slide)
    * @param {number} [opts.h] - Height in inches (default full slide)
-   * @returns {string} OOXML shape string
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function gradientOverlay(opts?: GradientOverlayOptions): string;
+  export declare function gradientOverlay(opts?: GradientOverlayOptions): ShapeFragment;
   /**
    * Create a full-bleed background image that covers the entire slide.
    * Use with customSlide to create hero slides with image backgrounds.
@@ -2330,22 +3749,22 @@ declare module "ha:pptx" {
    * @param {Object} pres - Presentation object from createPresentation()
    * @param {Uint8Array} data - Image data (from fetchBinary, readBinary, or shared-state)
    * @param {string} [format='jpg'] - Image format (jpg, png, gif, webp, etc.)
-   * @returns {string} OOXML shape string for a full-slide image
+   * @returns {ShapeFragment} Branded shape fragment for a full-slide image
    */
-  export declare function backgroundImage(pres: PresentationInternal, data: Uint8Array, format?: string): string;
+  export declare function backgroundImage(pres: PresentationInternal, data: Uint8Array, format?: string): ShapeFragment;
   /**
    * Create a gradient background for slides.
-   * Use with pres.addSlide() or as defaultBackground in createPresentation().
+   * Use with customSlide({ background }) or as defaultBackground in createPresentation().
    *
    * @param {string} color1 - Start color (hex, e.g. '000000')
    * @param {string} color2 - End color (hex, e.g. '1a1a2e')
    * @param {number} [angle=270] - Gradient angle in degrees (0=right, 90=down, 180=left, 270=up)
-   * @returns {string} Background XML for use with pres.addSlide()
+   * @returns {string} Background XML for use with customSlide()
    *
    * @example
    * // Vertical gradient (top to bottom)
-   * const bg = gradientBg('000000', '1a1a2e', 180);
-   * pres.addSlide(bg, shapes);
+   * const pres = createPresentation({ theme: 'brutalist' });
+   * customSlide(pres, { shapes: [...], background: '000000' });
    *
    * @example
    * // As default background for all slides
@@ -2355,6 +3774,19 @@ declare module "ha:pptx" {
    * });
    */
   export declare function gradientBg(color1: string, color2: string, angle?: number): string;
+  export interface ValidationIssue {
+      code: string;
+      severity: "error" | "warn";
+      message: string;
+      part?: string;
+      slideIndex?: number;
+      hint?: string;
+  }
+  export interface ValidationResult {
+      ok: boolean;
+      errors: ValidationIssue[];
+      warnings: ValidationIssue[];
+  }
   /**
    * Create a new presentation builder.
    *
@@ -2371,11 +3803,12 @@ declare module "ha:pptx" {
    * titleSlide(pres, { title: 'My Title' });
    * contentSlide(pres, { title: 'Content', bullets: ['Point 1', 'Point 2'] });
    *
-   * // For CUSTOM layouts, use pres.addSlide() directly:
-   * const bg = solidFill(pres.theme.bg);
-   * const shapes = textBox({x: 1, y: 1, w: 8, h: 1, text: 'Custom text'}) +
-   *                rect({x: 1, y: 3, w: 4, h: 2, fill: pres.theme.accent1});
-   * pres.addSlide(bg, shapes, { transition: 'fade' });
+   * // For CUSTOM layouts, use customSlide():
+   * customSlide(pres, {
+   *   shapes: [textBox({x: 1, y: 1, w: 8, h: 1, text: 'Custom text'}),
+   *            rect({x: 1, y: 3, w: 4, h: 2, fill: pres.theme.accent1})],
+   *   transition: 'fade'
+   * });
    *
    * // Build final file
    * const zip = pres.buildZip();
@@ -2463,12 +3896,19 @@ declare module "ha:pptx" {
        * pres.addBody(textBox({x:1, y:1, w:8, h:1, text:'Hello'}));
        *
        * // With solid background:
-       * pres.addBody(shapes, { background: '0D1117', transition: 'fade' });
+       * pres.addBody([shape1, shape2], { background: '0D1117', transition: 'fade' });
        *
        * // With gradient background:
-       * pres.addBody(shapes, { background: {color1: '000000', color2: '1a1a2e', angle: 180} });
+       * pres.addBody([shape1], { background: {color1: '000000', color2: '1a1a2e', angle: 180} });
        */
-      addBody(shapesXml: string | string[], slideOpts?: SlideOptions): void;
+      addBody(shapesInput: ShapeFragment | ShapeFragment[] | string | string[], slideOpts?: SlideOptions): void;
+      /**
+       * Internal: add shapes (as pre-validated XML string) to a new slide.
+       * Resolves background from per-slide > defaultBackground > theme.
+       * Not on the Presentation interface — internal use only.
+       * @internal
+       */
+      _addBodyRaw(shapesStr: string, slideOpts?: SlideOptions): void;
       /**
        * Insert a slide at a specific index. Existing slides shift right.
        * @param {number} index - Position to insert (0-based). Clamped to valid range.
@@ -2754,17 +4194,18 @@ declare module "ha:pptx" {
    * Add a blank slide with just the theme background (NO content).
    *
    * ⚠️ WARNING: This creates an EMPTY slide. You CANNOT add shapes to it later.
-   * For custom layouts with shapes, use pres.addSlide() directly instead:
+   * For custom layouts with shapes, use customSlide() instead:
    *
    * @example
    * // DON'T do this — blankSlide creates empty slide with no way to add content:
    * blankSlide(pres);  // Creates empty slide, cannot add shapes after
    *
-   * // DO this instead — use addSlide for custom layouts:
-   * const bg = solidFill(pres.theme.bg);
-   * const shapes = textBox({x: 1, y: 1, w: 8, h: 1, text: 'Custom slide'}) +
-   *                rect({x: 1, y: 3, w: 4, h: 2, fill: pres.theme.accent1});
-   * pres.addSlide(bg, shapes, { transition: 'fade' });
+   * // DO this instead — use customSlide for custom layouts:
+   * customSlide(pres, {
+   *   shapes: [textBox({x: 1, y: 1, w: 8, h: 1, text: 'Custom slide'}),
+   *            rect({x: 1, y: 3, w: 4, h: 2, fill: pres.theme.accent1})],
+   *   transition: 'fade'
+   * });
    *
    * @param {Object} pres - Presentation object from createPresentation(). REQUIRED as first param.
    * @returns {void}
@@ -3270,9 +4711,9 @@ declare module "ha:pptx" {
    * @param {string} [opts.titleColor='8B949E'] - Title color
    * @param {boolean} [opts.lineNumbers=false] - Show line numbers
    * @param {number} [opts.cornerRadius=4] - Corner radius in points
-   * @returns {string} Shape XML fragment
+   * @returns {ShapeFragment} Branded shape fragment
    */
-  export declare function codeBlock(opts: CodeBlockOptions): string;
+  export declare function codeBlock(opts: CodeBlockOptions): ShapeFragment;
   /**
    * Slide configuration for batch creation.
    * Each object describes one slide using a declarative config.
@@ -3404,20 +4845,21 @@ declare module "ha:pptx" {
    *
    * @example
    * // Single image
-   * const imgXml = await fetchAndEmbed(pres, {
+   * const img = fetchAndEmbed(pres, {
    *   url: "https://example.com/photo.jpg",
-   *   x: 1, y: 1, w: 4, h: 3
+   *   x: 1, y: 1, w: 4, h: 3,
+   *   fetchFn: fetchBinary
    * });
-   * customSlide(pres, { shapes: imgXml + textBox({...}) });
+   * customSlide(pres, { shapes: [img, textBox({...})] });
    *
    * @example
    * // With fetch plugin
    * import { fetchBinary } from "host:fetch";
-   * const imgXml = await fetchAndEmbed(pres, {
+   * const img = fetchAndEmbed(pres, {
    *   url: "https://cdn.example.com/hero.jpg",
    *   x: 0, y: 0, w: 13.333, h: 7.5,
    *   fit: "cover",
-   *   fetchFn: fetchBinary  // Pass the fetch function
+   *   fetchFn: fetchBinary
    * });
    *
    * @param {Object} pres - Presentation object
@@ -3430,7 +4872,7 @@ declare module "ha:pptx" {
    * @param {string} [opts.format] - Image format (auto-detected from URL if omitted)
    * @param {string} [opts.fit] - Fit mode: 'stretch', 'contain', 'cover'
    * @param {Function} opts.fetchFn - Fetch function (e.g., fetchBinary from host:fetch)
-   * @returns {string} Image XML fragment for use in shapes
+   * @returns {ShapeFragment} Branded image shape fragment
    */
   export declare function fetchAndEmbed(pres: Pres, opts: {
       url: string;
@@ -3441,7 +4883,7 @@ declare module "ha:pptx" {
       format?: string;
       fit?: "stretch" | "contain" | "cover";
       fetchFn: (url: string) => Uint8Array;
-  }): string;
+  }): ShapeFragment;
   /**
    * Fetch multiple images and embed them all, returning XML fragments.
    * Uses fetchBinaryBatch for efficient parallel downloads when maxParallelFetches > 1.
@@ -3456,13 +4898,13 @@ declare module "ha:pptx" {
    *   ],
    *   fetchBatchFn: fetchBinaryBatch
    * });
-   * // images = [{ url, xml }, { url, xml }, { url, xml }] or [{ url, error }, ...]
+   * // images = [{ url, shape }, { url, shape }, { url, shape }] or [{ url, error }, ...]
    *
    * @param {Object} pres - Presentation object
    * @param {Object} opts - Options
    * @param {Array} opts.items - Array of {url, x, y, w, h, format?, fit?}
    * @param {Function} opts.fetchBatchFn - Batch fetch function (fetchBinaryBatch from host:fetch)
-   * @returns {Array} Array of {url, xml} or {url, error} for each item
+   * @returns {Array} Array of {url, shape: ShapeFragment} or {url, error} for each item
    */
   export declare function fetchAndEmbedBatch(pres: Pres, opts: {
       items: Array<{
@@ -3481,7 +4923,7 @@ declare module "ha:pptx" {
       }>;
   }): Array<{
       url: string;
-      xml?: string;
+      shape?: ShapeFragment;
       error?: string;
   }>;
 }

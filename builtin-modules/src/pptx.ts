@@ -31,16 +31,9 @@
 //
 
 import {
-  inches,
-  fontSize,
   hexColor,
   getTheme,
   getThemeNames,
-  contentTypesXml,
-  relsXml,
-  themeXml,
-  SLIDE_WIDTH,
-  SLIDE_HEIGHT,
   autoTextColor,
   isDark,
   requireHex,
@@ -51,6 +44,16 @@ import {
   requireEnum,
   THEMES,
   contrastRatio,
+  type Theme,
+} from "ha:doc-core";
+import {
+  inches,
+  fontSize,
+  contentTypesXml,
+  relsXml,
+  themeXml,
+  SLIDE_WIDTH,
+  SLIDE_HEIGHT,
   nextShapeId,
   nextShapeIdAndName,
   resetShapeIdCounter,
@@ -62,7 +65,6 @@ import {
   isShapeFragment,
   fragmentsToXml,
   type ShapeFragment,
-  type Theme,
 } from "ha:ooxml-core";
 import { escapeXml } from "ha:xml-escape";
 import { createZip } from "ha:zip-format";
@@ -5420,13 +5422,19 @@ ${notesMasterIdLst}<p:sldIdLst>${slideList}</p:sldIdLst>
         }
 
         // Image relationships for this slide (dedupe by relId to prevent duplicates)
+        // Remap rIdImage* to sequential rId* to comply with OOXML standards.
+        // The original rIdImage* IDs are used in the slide XML (blipFill r:embed),
+        // so we build a mapping and rewrite the slide XML before adding it.
+        const imageRelMap = new Map<string, string>(); // rIdImage15 → rId4
         if (this._images) {
           const seenRelIds = new Set<string>();
           for (const img of this._images) {
             if (img.slideIndex === slideNum && !seenRelIds.has(img.relId)) {
               seenRelIds.add(img.relId);
+              const newRelId = `rId${relIdCounter++}`;
+              imageRelMap.set(img.relId, newRelId);
               slideRels.push({
-                id: img.relId,
+                id: newRelId,
                 type: "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image",
                 target: `../${img.mediaPath}`,
               });
@@ -5450,9 +5458,23 @@ ${notesMasterIdLst}<p:sldIdLst>${slideList}</p:sldIdLst>
         // Get animations for this slide (if any)
         const slideAnims = this._animations ? this._animations[i] : undefined;
 
+        // Generate slide XML and remap image rel IDs from rIdImage* to rId*
+        let slideContent = slideXml(
+          slide.bg,
+          slide.shapes,
+          transXml,
+          slideAnims,
+        );
+        // Rewrite r:embed="rIdImage15" → r:embed="rId4" etc.
+        for (const [oldId, newId] of imageRelMap) {
+          slideContent = slideContent.replaceAll(
+            `r:embed="${oldId}"`,
+            `r:embed="${newId}"`,
+          );
+        }
         entries.push({
           name: `ppt/slides/slide${i + 1}.xml`,
-          data: slideXml(slide.bg, slide.shapes, transXml, slideAnims),
+          data: slideContent,
         });
 
         // Notes slide (if notes exist)

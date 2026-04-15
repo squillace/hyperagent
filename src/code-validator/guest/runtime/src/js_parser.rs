@@ -1380,16 +1380,93 @@ pub fn is_builtin_property(name: &str) -> bool {
 
 /// Extract all property accesses (non-method) from source code.
 /// Returns accesses like `obj.property` but NOT `obj.method()`.
+/// Skips content inside string literals and template literals to avoid false positives
+/// (e.g. `"docs.rust-lang.org"` should not flag `.rust` as a property access).
 pub fn extract_all_property_accesses(source: &str) -> Vec<PropertyAccessInfo> {
     let mut accesses = Vec::new();
+    // Track multi-line template literal state across lines
+    let mut in_template_literal = false;
+    // Track `${...}` interpolation nesting depth inside template literals.
+    // When > 0, we're inside an expression and should scan for property accesses.
+    let mut template_brace_depth: u32 = 0;
 
     for (line_num, line) in source.lines().enumerate() {
         // Find all `.identifier` patterns that are NOT followed by (
         let bytes = line.as_bytes();
         let mut i = 0;
+        // Track whether we're inside a string literal on this line
+        let mut in_single_quote = false;
+        let mut in_double_quote = false;
 
         while i < bytes.len() {
-            if bytes[i] == b'.' {
+            let ch = bytes[i];
+
+            // Handle escape sequences — skip the next character
+            if ch == b'\\' && (in_single_quote || in_double_quote || in_template_literal) {
+                i += 2; // skip escaped char
+                continue;
+            }
+
+            // Track string literal boundaries
+            if ch == b'\'' && !in_double_quote && !in_template_literal {
+                in_single_quote = !in_single_quote;
+                i += 1;
+                continue;
+            }
+            if ch == b'"' && !in_single_quote && !in_template_literal {
+                in_double_quote = !in_double_quote;
+                i += 1;
+                continue;
+            }
+            if ch == b'`' && !in_single_quote && !in_double_quote {
+                // Only toggle template state when not inside an interpolation
+                if template_brace_depth == 0 {
+                    in_template_literal = !in_template_literal;
+                }
+                i += 1;
+                continue;
+            }
+
+            // Handle template literal interpolation boundaries: ${ and }
+            if in_template_literal
+                && template_brace_depth == 0
+                && ch == b'$'
+                && i + 1 < bytes.len()
+                && bytes[i + 1] == b'{'
+            {
+                // Entering ${...} — start scanning for property accesses
+                template_brace_depth = 1;
+                i += 2; // skip ${
+                continue;
+            }
+            if template_brace_depth > 0 && ch == b'{' {
+                template_brace_depth += 1;
+                i += 1;
+                continue;
+            }
+            if template_brace_depth > 0 && ch == b'}' {
+                template_brace_depth -= 1;
+                // When depth returns to 0, we're back in template literal text
+                i += 1;
+                continue;
+            }
+
+            // Skip template literal text (but NOT interpolation expressions)
+            // Skip regular string literals entirely
+            if in_single_quote
+                || in_double_quote
+                || (in_template_literal && template_brace_depth == 0)
+            {
+                i += 1;
+                continue;
+            }
+
+            // Skip single-line comments
+            if ch == b'/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' {
+                break; // rest of line is comment
+            }
+
+            if ch == b'.' {
                 // Scan backwards for object name
                 let mut obj_start = i;
                 while obj_start > 0
@@ -1686,6 +1763,90 @@ realFunc(arg);
             assigns
                 .iter()
                 .any(|a| a.var_name == "y" && a.final_method() == Some("method2"))
+        );
+    }
+
+    #[test]
+    fn test_property_access_in_template_interpolation() {
+        // Property accesses inside ${...} should be detected
+        // Note: "name" is in BUILTIN_PROPERTIES so use "firstName" instead
+        let source = r#"const msg = `Hello ${user.firstName} from ${user.city}`;"#;
+        let accesses = extract_all_property_accesses(source);
+        assert!(
+            accesses
+                .iter()
+                .any(|a| a.object == "user" && a.property == "firstName"),
+            "Should detect user.firstName inside template interpolation"
+        );
+        assert!(
+            accesses
+                .iter()
+                .any(|a| a.object == "user" && a.property == "city"),
+            "Should detect user.city inside template interpolation"
+        );
+    }
+
+    #[test]
+    fn test_property_access_not_in_template_text() {
+        // Dotted text in template literal text (not in ${}) should NOT be detected
+        let source = r#"const url = `https://docs.rust-lang.org/book`;"#;
+        let accesses = extract_all_property_accesses(source);
+        assert!(
+            accesses.is_empty(),
+            "Should NOT detect property accesses in template literal text, got: {:?}",
+            accesses
+        );
+    }
+
+    #[test]
+    fn test_property_access_not_in_string_literals() {
+        // Dotted text in regular strings should NOT be detected
+        let source = r#"const url = "https://docs.rust-lang.org/book";"#;
+        let accesses = extract_all_property_accesses(source);
+        assert!(
+            accesses.is_empty(),
+            "Should NOT detect property accesses in string literals, got: {:?}",
+            accesses
+        );
+    }
+
+    #[test]
+    fn test_property_access_nested_braces_in_template() {
+        // Nested braces inside ${...} should be handled correctly
+        let source = r#"const out = `${items.filter(x => { return x.valid }).total} items`;"#;
+        let accesses = extract_all_property_accesses(source);
+        // items.filter() is a method call — should NOT appear as property access
+        assert!(
+            !accesses
+                .iter()
+                .any(|a| a.object == "items" && a.property == "filter"),
+            "items.filter() is a method call, should not appear as property access"
+        );
+        // x.valid is inside nested braces — should be detected
+        assert!(
+            accesses
+                .iter()
+                .any(|a| a.object == "x" && a.property == "valid"),
+            "Should detect x.valid inside nested braces in template interpolation"
+        );
+    }
+
+    #[test]
+    fn test_property_access_mixed_template_and_code() {
+        // Mix of template text and real code on same line
+        let source = r#"console.log(`Result: ${data.value}`); const x = obj.prop;"#;
+        let accesses = extract_all_property_accesses(source);
+        assert!(
+            accesses
+                .iter()
+                .any(|a| a.object == "data" && a.property == "value"),
+            "Should detect data.value in template interpolation"
+        );
+        assert!(
+            accesses
+                .iter()
+                .any(|a| a.object == "obj" && a.property == "prop"),
+            "Should detect obj.prop outside template"
         );
     }
 }
